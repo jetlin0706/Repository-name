@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUser = null;
     
     // 新版多角色登录相关变量
-    let jwtToken = null;
-    let loginContainer = document.getElementById('loginContainer');
+    let jwtToken = localStorage.getItem('token');
+    const loginContainer = document.getElementById('loginContainer');
     let loginUsername = document.getElementById('loginUsername');
     let loginPassword = document.getElementById('loginPassword');
     let loginBtn = document.getElementById('loginBtn');
@@ -35,45 +35,76 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('dashboard').appendChild(agentStatsContainer);
     }
 
-    // 添加登录表单
+    // 获取主容器
     const mainContainer = document.querySelector('.container');
-    const loginContainer = document.createElement('div');
-    loginContainer.className = 'login-container card';
-    loginContainer.innerHTML = `
-        <h2>管理员登录</h2>
-        <div class="form-group">
-            <label for="adminPassword">管理员密码</label>
-            <input type="password" id="adminPassword" placeholder="请输入管理员密码">
-        </div>
-        <button id="loginBtn">登录</button>
-        <p id="loginMessage" class="error-message"></p>
-    `;
-    
+    // 创建旧版登录容器的引用
+    let oldLoginContainer = null;
+
     // 隐藏主要内容，显示登录表单
     function showLoginForm() {
+        // 显示内置登录表单
+        if (loginContainer) {
+            loginContainer.style.display = 'block';
+            // 隐藏其他内容
+            Array.from(mainContainer.children).forEach(child => {
+                if (child !== loginContainer) {
+                    child.style.display = 'none';
+                }
+            });
+            if (loginUsername) loginUsername.focus();
+            return;
+        }
+        
+        // 旧版兼容，使用创建的登录表单
+        if (!oldLoginContainer) {
+            oldLoginContainer = document.createElement('div');
+            oldLoginContainer.className = 'login-container card';
+            oldLoginContainer.innerHTML = `
+                <h2>管理员登录</h2>
+                <div class="form-group">
+                    <label for="adminPassword">管理员密码</label>
+                    <input type="password" id="adminPassword" placeholder="请输入管理员密码">
+                </div>
+                <button id="loginBtn">登录</button>
+                <p id="loginMessage" class="error-message"></p>
+            `;
+            mainContainer.prepend(oldLoginContainer);
+        } else {
+            oldLoginContainer.style.display = 'block';
+        }
+        
         // 隐藏所有子元素
         Array.from(mainContainer.children).forEach(child => {
-            if (child !== loginContainer) {
+            if (child !== oldLoginContainer) {
                 child.style.display = 'none';
             }
         });
         
-        // 显示登录表单
-        mainContainer.prepend(loginContainer);
-        document.getElementById('adminPassword').focus();
+        const adminPassword = document.getElementById('adminPassword');
+        if (adminPassword) adminPassword.focus();
     }
     
     // 显示主要内容，隐藏登录表单
     function showMainContent() {
-        loginContainer.style.display = 'none';
+        if (loginContainer) {
+            loginContainer.style.display = 'none';
+        }
+        
+        if (oldLoginContainer) {
+            oldLoginContainer.style.display = 'none';
+        }
+        
         Array.from(mainContainer.children).forEach(child => {
-            if (child !== loginContainer) {
+            if (child !== loginContainer && child !== oldLoginContainer) {
                 child.style.display = '';
             }
         });
     }
 
     function getAuthHeaders() {
+        if (jwtToken) {
+            return { 'Authorization': `Bearer ${jwtToken}` };
+        }
         if (!password) return {};
         const encoded = btoa(`:${password}`);
         return { 'Authorization': `Basic ${encoded}` };
@@ -81,22 +112,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 封装fetch，自动处理401
     async function apiFetch(url, options = {}) {
+        const headers = options.headers || {};
+        options.headers = { ...headers, ...getAuthHeaders() };
+        
         const resp = await fetch(url, options);
         if (resp.status === 401) {
+            // 清除token
+            localStorage.removeItem('token');
+            jwtToken = null;
+            isAuthenticated = false;
+            currentUser = null;
+            
             showLoginForm();
-            document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
+            if (loginMessage) {
+                loginMessage.textContent = '登录已过期，请重新登录';
+            } else if (document.getElementById('loginMessage')) {
+                document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
+            }
             throw new Error('401 Unauthorized');
         }
         return resp;
     }
 
+    // 获取仪表盘数据
+    async function fetchDashboard() {
+        try {
+            const resp = await apiFetch(`${apiBaseUrl}/dashboard`);
+            if (resp.ok) {
+                const data = await resp.json();
+                updateDashboardStats(data);
+            }
+        } catch (error) {
+            console.error('获取仪表盘数据失败:', error);
+        }
+    }
+
     async function fetchLicenses() {
         try {
             console.log('正在获取授权码列表...');
-            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
-                method: 'GET',
-                headers: getAuthHeaders()
-            });
+            const response = await apiFetch(`${apiBaseUrl}/licenses`);
 
             console.log('获取授权码响应状态:', response.status);
 
@@ -110,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Error fetching licenses:', error);
-            alert('获取授权码列表时出错，详情请查看控制台。');
+            // 不显示alert，避免重复提示
         }
     }
 
@@ -452,7 +506,47 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 登录处理
     function handleLogin() {
+        if (loginContainer && loginContainer.style.display !== 'none') {
+            // 新版登录
+            const username = loginUsername.value.trim();
+            const password = loginPassword.value.trim();
+            
+            if (!username || !password) {
+                loginMessage.textContent = '请输入用户名和密码';
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginMessage.textContent = '登录中...';
+            
+            fetch(`${apiBaseUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                if (data.token && data.user) {
+                    localStorage.setItem('token', data.token);
+                    loginAndInit(data.token, data.user);
+                } else {
+                    throw new Error('登录失败：无效响应');
+                }
+            })
+            .catch(err => {
+                loginMessage.textContent = err.message || '登录失败';
+                loginBtn.disabled = false;
+            });
+            return;
+        }
+        
+        // 旧版登录兼容
         const passwordInput = document.getElementById('adminPassword');
+        if (!passwordInput) return;
+        
         const enteredPassword = passwordInput.value.trim();
         
         if (!enteredPassword) {
@@ -472,21 +566,103 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 添加登录按钮事件监听
     function setupLoginForm() {
-        const loginBtn = document.getElementById('loginBtn');
-        const passwordInput = document.getElementById('adminPassword');
+        if (loginContainer && loginBtn && loginPassword) {
+            // 新版登录表单
+            loginBtn.addEventListener('click', handleLogin);
+            loginPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleLogin();
+                }
+            });
+            return;
+        }
         
-        loginBtn.addEventListener('click', handleLogin);
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleLogin();
+        // 等待旧版登录表单创建完成
+        setTimeout(() => {
+            // 旧版登录兼容
+            const oldLoginBtn = document.getElementById('loginBtn');
+            const passwordInput = document.getElementById('adminPassword');
+            
+            if (oldLoginBtn && passwordInput) {
+                oldLoginBtn.addEventListener('click', handleLogin);
+                passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleLogin();
+                    }
+                });
             }
-        });
+        }, 100);
     }
     
+    // 登录成功后，拉取dashboard数据
+    async function loginAndInit(token, user) {
+        jwtToken = token;
+        password = token; // 兼容旧逻辑
+        currentUser = user;
+        isAuthenticated = true;
+        showMainContent();
+        await fetchDashboard();
+        await fetchLicenses();
+        if (currentUser && currentUser.role === 'admin') {
+            updateAccountCardVisibility();
+        }
+        renderSelfResetPwdBtn();
+        // 管理员自动显示日志
+        if (currentUser && currentUser.role === 'admin') {
+            showLogsCard(true);
+        } else {
+            showLogsCard(false);
+            // 代理商可在仪表盘下方显示"查看操作日志"按钮
+            let btn = document.getElementById('showLogsBtn');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.id = 'showLogsBtn';
+                btn.textContent = '查看操作日志';
+                btn.style.margin = '16px auto 0 auto';
+                btn.style.display = 'block';
+                btn.onclick = () => {
+                    showLogsCard(logsCard.style.display === 'none');
+                    btn.textContent = logsCard.style.display === 'none' ? '查看操作日志' : '隐藏操作日志';
+                };
+                logsCard.parentNode.insertBefore(btn, logsCard);
+            }
+        }
+    }
+    
+    // 初始化
     setDefaultDates();
-    showLoginForm();
     setupLoginForm();
+    
+    // 检查是否有token，有则尝试自动登录
+    if (jwtToken) {
+        // 尝试获取用户信息
+        fetch(`${apiBaseUrl}/accounts/me`, {
+            headers: { 'Authorization': `Bearer ${jwtToken}` }
+        })
+        .then(resp => {
+            if (!resp.ok) {
+                throw new Error('Token无效');
+            }
+            return resp.json();
+        })
+        .then(data => {
+            if (data.user) {
+                loginAndInit(jwtToken, data.user);
+            } else {
+                throw new Error('获取用户信息失败');
+            }
+        })
+        .catch(err => {
+            console.error('自动登录失败:', err);
+            localStorage.removeItem('token');
+            showLoginForm();
+        });
+    } else {
+        // 没有token，显示登录表单
+        showLoginForm();
+    }
     
     // 隐藏添加默认授权码按钮
     const addDefaultBtn = document.querySelector('button');
@@ -709,39 +885,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!resp.ok) throw new Error(data.error || '重置失败');
             });
         };
-    }
-
-    // 登录成功后，拉取dashboard数据
-    async function loginAndInit(token, user) {
-        password = token; // 兼容旧逻辑
-        currentUser = user;
-        showMainContent();
-        await fetchDashboard();
-        await fetchLicenses();
-        if (currentUser && currentUser.role === 'admin') {
-            updateAccountCardVisibility();
-        }
-        renderSelfResetPwdBtn();
-        // 管理员自动显示日志
-        if (currentUser && currentUser.role === 'admin') {
-            showLogsCard(true);
-        } else {
-            showLogsCard(false);
-            // 代理商可在仪表盘下方显示"查看操作日志"按钮
-            let btn = document.getElementById('showLogsBtn');
-            if (!btn) {
-                btn = document.createElement('button');
-                btn.id = 'showLogsBtn';
-                btn.textContent = '查看操作日志';
-                btn.style.margin = '16px auto 0 auto';
-                btn.style.display = 'block';
-                btn.onclick = () => {
-                    showLogsCard(logsCard.style.display === 'none');
-                    btn.textContent = logsCard.style.display === 'none' ? '查看操作日志' : '隐藏操作日志';
-                };
-                logsCard.parentNode.insertBefore(btn, logsCard);
-            }
-        }
     }
 
     // 日志相关

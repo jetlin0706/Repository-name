@@ -34,6 +34,26 @@ async function writeLog(user, type, detail) {
 }
 
 export default async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // 特殊路由: /me 获取当前用户信息
+  if (req.url.endsWith('/me')) {
+    const user = getAuthPayload(req);
+    if (!user) return res.status(401).json({ error: '未登录或token无效' });
+    return res.status(200).json({ 
+      user: { 
+        username: user.username, 
+        role: user.role, 
+        name: user.name 
+      } 
+    });
+  }
+
   const user = getAuthPayload(req);
   if (!user) return res.status(401).json({ error: '未登录或token无效' });
   if (user.role !== 'admin') return res.status(403).json({ error: '无权限' });
