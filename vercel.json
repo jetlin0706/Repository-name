@@ -1,28 +1,28 @@
 {
   "version": 2,
   "routes": [
+    { 
+      "src": "/(.*)\\.(?:js|css|svg|png|jpg|jpeg|gif|ico)$",
+      "headers": { 
+        "cache-control": "public, max-age=31536000, immutable" 
+      },
+      "continue": true
+    },
+    { 
+      "src": "/(.*)",
+      "headers": { 
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept, Authorization",
+        "Cache-Control": "public, max-age=0, must-revalidate"
+      },
+      "continue": true
+    },
     { "src": "/", "dest": "/ai-reply-verifier-backend/public/admin/index.html" },
     { "src": "/admin", "dest": "/ai-reply-verifier-backend/public/admin/index.html" },
     { "src": "/admin/(.*)", "dest": "/ai-reply-verifier-backend/public/admin/$1" },
     { "handle": "filesystem" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/(.*)", "dest": "/ai-reply-verifier-backend/public/admin/$1" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, Content-Type, Accept, Authorization" },
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/(.*)\\.(js|css|svg|png|jpg|jpeg|gif|ico)$",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
   ]
 } 
