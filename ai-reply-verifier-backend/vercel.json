@@ -19,7 +19,8 @@
     ],
     "routes": [
         { "src": "/admin", "dest": "/api/admin" },
-        { "src": "/admin/(.*)", "dest": "/admin/$1" },
+        { "src": "/admin/style.css", "dest": "/api/admin/style" },
+        { "src": "/admin/script.js", "dest": "/api/admin/script" },
         { "src": "/", "dest": "/api/index" }
     ]
 } 

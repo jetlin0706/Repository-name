@@ -5,7 +5,11 @@ export default function handler(req, res) {
   try {
     // 读取admin/index.html文件
     const adminHtmlPath = path.join(process.cwd(), 'public', 'admin', 'index.html');
-    const adminHtml = fs.readFileSync(adminHtmlPath, 'utf8');
+    let adminHtml = fs.readFileSync(adminHtmlPath, 'utf8');
+    
+    // 修改资源引用路径
+    adminHtml = adminHtml.replace('src="/admin/script.js"', 'src="/api/admin/script"');
+    adminHtml = adminHtml.replace('href="/admin/style.css"', 'href="/api/admin/style"');
     
     // 设置内容类型为HTML
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
