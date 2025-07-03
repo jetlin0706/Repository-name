@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             allLicenses = await response.json();
             console.log('获取到的授权码数据:', allLicenses);
-            renderLicenses(allLicenses);
+            renderLicensesWithSearchAndPage();
             updateDashboard(allLicenses);
 
         } catch (error) {
@@ -471,5 +471,67 @@ document.addEventListener('DOMContentLoaded', () => {
     const addDefaultBtn = document.querySelector('button');
     if (addDefaultBtn && addDefaultBtn.textContent.includes('添加默认授权码')) {
         addDefaultBtn.style.display = 'none';
+    }
+
+    // 新增：搜索与分页相关变量
+    const searchInput = document.getElementById('searchInput');
+    const paginationDiv = document.getElementById('pagination');
+    let filteredLicenses = {};
+    let currentPage = 1;
+    const PAGE_SIZE = 10;
+
+    // 监听搜索输入
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            renderLicensesWithSearchAndPage();
+        });
+    }
+
+    // 渲染带搜索和分页的授权码
+    function renderLicensesWithSearchAndPage() {
+        const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        // 过滤
+        filteredLicenses = {};
+        for (const key in allLicenses) {
+            let license = allLicenses[key];
+            if (typeof license === 'string') {
+                try { license = JSON.parse(license); } catch { continue; }
+            }
+            const hotelName = (license.hotelName || '').toLowerCase();
+            if (key.toLowerCase().includes(keyword) || hotelName.includes(keyword)) {
+                filteredLicenses[key] = license;
+            }
+        }
+        // 分页
+        const keys = Object.keys(filteredLicenses);
+        const total = keys.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+        const startIdx = (currentPage - 1) * PAGE_SIZE;
+        const pageKeys = keys.slice(startIdx, startIdx + PAGE_SIZE);
+        // 构造分页数据
+        const pageLicenses = {};
+        for (const k of pageKeys) pageLicenses[k] = filteredLicenses[k];
+        renderLicenses(pageLicenses);
+        renderPagination(totalPages);
+    }
+
+    // 渲染分页栏
+    function renderPagination(totalPages) {
+        paginationDiv.innerHTML = '';
+        if (totalPages <= 1) return;
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.textContent = i;
+            btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
+            btn.onclick = () => { currentPage = i; renderLicensesWithSearchAndPage(); };
+            paginationDiv.appendChild(btn);
+        }
+    }
+
+    // 新增：初始渲染
+    if (searchInput && paginationDiv) {
+        renderLicensesWithSearchAndPage();
     }
 }); 
