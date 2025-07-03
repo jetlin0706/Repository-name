@@ -4,8 +4,8 @@
  */
 document.addEventListener('DOMContentLoaded', async () => {
     // --- 常量定义 ---
-    // 注意：这个URL将在第二阶段替换为您自己的URL
-    const VERIFIER_URL = 'https://repository-name-v2.vercel.app/api/verify';
+    // 将占位符URL替换为实际部署的URL
+    const VERIFIER_URL = 'https://ai-reply-verifier-backend.vercel.app/api/verify';
     
     // --- DOM元素获取 ---
     const featureEnabledSwitch = document.getElementById('featureEnabled');
@@ -137,20 +137,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({ licenseKey: key })
             });
             
-            if (!response.ok) {
-                throw new Error(`服务器响应错误: ${response.status}`);
-            }
-            
             const result = await response.json();
             
-            if (result.valid) {
+            if (response.ok && result.valid) {
                 await chrome.storage.local.set({ isActivated: true, licenseKey: key });
                 updateUiLockState(true);
                 log(`授权码 ${key} 验证成功`);
+                showStatus('授权码验证成功', 'success');
             } else {
                 await chrome.storage.local.set({ isActivated: false });
-                showStatus('授权码无效或已过期，请重试', 'error');
-                log(`授权码 ${key} 验证失败`);
+                showStatus(result.message || '授权码无效或已过期，请重试', 'error');
+                log(`授权码 ${key} 验证失败: ${result.message || response.status}`);
             }
         } catch (error) {
             log(`验证请求失败: ${error.message}`);
