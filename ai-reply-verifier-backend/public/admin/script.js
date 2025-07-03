@@ -970,20 +970,65 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('del-account-btn')) {
             const username = e.target.dataset.u;
             if (!confirm('确定要删除账号 ' + username + ' 吗？')) return;
-            const resp = await apiFetch(apiBaseUrl + '/accounts', {
-                method: 'DELETE', headers: getAuthHeaders(), body: JSON.stringify({ username })
-            });
-            const data = await resp.json();
-            if (!resp.ok) return alert(data.error || '删除失败');
-            fetchAccounts();
+            
+            try {
+                console.log('发送删除账号请求:', { username });
+                const deleteBtn = e.target;
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = '删除中...';
+                
+                const resp = await apiFetch(apiBaseUrl + '/accounts', {
+                    method: 'DELETE', 
+                    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                
+                const data = await resp.json();
+                
+                if (!resp.ok) {
+                    console.error('删除账号失败:', data);
+                    alert(data.error || '删除失败');
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = '删除';
+                    return;
+                }
+                
+                console.log('删除账号成功:', data);
+                alert('删除成功');
+                fetchAccounts();
+            } catch (error) {
+                console.error('删除账号出错:', error);
+                alert('删除账号时发生错误，请稍后重试');
+                // 恢复按钮状态
+                const deleteBtn = e.target;
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = '删除';
+                }
+            }
         } else if (e.target.classList.contains('reset-pwd-btn')) {
             const username = e.target.dataset.u;
             showResetPwdDialog(username, async (newPwd) => {
-                const resp = await apiFetch(apiBaseUrl + '/reset-password', {
-                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ username, newPassword: newPwd })
-                });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || '重置失败');
+                try {
+                    console.log('发送重置密码请求:', { username });
+                    const resp = await apiFetch(apiBaseUrl + '/reset-password', {
+                        method: 'POST', 
+                        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, newPassword: newPwd })
+                    });
+                    
+                    const data = await resp.json();
+                    
+                    if (!resp.ok) {
+                        console.error('重置密码失败:', data);
+                        throw new Error(data.error || '重置失败');
+                    }
+                    
+                    console.log('重置密码成功:', data);
+                } catch (error) {
+                    console.error('重置密码出错:', error);
+                    throw error;
+                }
             });
         }
     };
@@ -1004,11 +1049,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         btn.onclick = () => {
             showResetPwdDialog(currentUser.username, async (newPwd) => {
-                const resp = await apiFetch(apiBaseUrl + '/reset-password', {
-                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ username: currentUser.username, newPassword: newPwd })
-                });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || '重置失败');
+                try {
+                    console.log('发送重置自己密码请求');
+                    const resp = await apiFetch(apiBaseUrl + '/reset-password', {
+                        method: 'POST', 
+                        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: currentUser.username, newPassword: newPwd })
+                    });
+                    
+                    const data = await resp.json();
+                    
+                    if (!resp.ok) {
+                        console.error('重置密码失败:', data);
+                        throw new Error(data.error || '重置失败');
+                    }
+                    
+                    console.log('重置密码成功:', data);
+                } catch (error) {
+                    console.error('重置密码出错:', error);
+                    throw error;
+                }
             });
         };
     }

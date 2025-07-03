@@ -146,19 +146,34 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      // 删除账号
-      if (!req.body) {
-        console.error('删除账号错误: 请求体不存在');
-        return res.status(400).json({ error: '请求数据无效' });
-      }
+      // 确保请求体已解析
+      console.log('DELETE请求体:', req.body);
       
-      const { username } = req.body;
-      console.log(`尝试删除账号: ${username}, 操作者: ${user.username}`);
+      // 检查请求体格式
+      let username;
+      if (typeof req.body === 'string') {
+        try {
+          // 尝试解析JSON字符串
+          const parsedBody = JSON.parse(req.body);
+          username = parsedBody.username;
+        } catch (error) {
+          console.error('解析DELETE请求体失败:', error);
+          return res.status(400).json({ error: '无效的请求格式' });
+        }
+      } else if (req.body && typeof req.body === 'object') {
+        // 已经是对象格式
+        username = req.body.username;
+      } else {
+        console.error('DELETE请求体格式错误');
+        return res.status(400).json({ error: '无效的请求格式' });
+      }
       
       if (!username) {
         console.error('删除账号错误: 缺少用户名');
         return res.status(400).json({ error: '缺少账号' });
       }
+      
+      console.log(`尝试删除账号: ${username}, 操作者: ${user.username}`);
       
       if (username === 'admin') {
         console.error('删除账号错误: 尝试删除超级管理员');
