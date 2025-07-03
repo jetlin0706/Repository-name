@@ -521,13 +521,31 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPagination(totalPages) {
         paginationDiv.innerHTML = '';
         if (totalPages <= 1) return;
-        for (let i = 1; i <= totalPages; i++) {
+        let start = Math.max(1, currentPage - 2);
+        let end = Math.min(totalPages, start + 4);
+        if (end - start < 4) start = Math.max(1, end - 4);
+        // 上一页按钮
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '«';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.className = 'page-btn';
+        prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderLicensesWithSearchAndPage(); } };
+        paginationDiv.appendChild(prevBtn);
+        // 数字页码
+        for (let i = start; i <= end; i++) {
             const btn = document.createElement('button');
             btn.textContent = i;
             btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
             btn.onclick = () => { currentPage = i; renderLicensesWithSearchAndPage(); };
             paginationDiv.appendChild(btn);
         }
+        // 下一页按钮
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = '»';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.className = 'page-btn';
+        nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderLicensesWithSearchAndPage(); } };
+        paginationDiv.appendChild(nextBtn);
     }
 
     // 新增：初始渲染
