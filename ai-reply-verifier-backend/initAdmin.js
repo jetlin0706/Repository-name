@@ -9,8 +9,10 @@ const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'Aa123456.';
 const ADMIN_NAME = '超级管理员';
 const ADMIN_ROLE = 'admin';
-const KV_URL = process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+
+// 从环境变量获取，如果没有则使用硬编码值（仅用于开发测试）
+const KV_URL = process.env.KV_REST_API_URL || 'https://us1-active-joey-37817.upstash.io';
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || 'AZQwASQgZGM4NTQ0ZmEtMWIyZS00MWJiLWI0ZmUtNzM1YjFkMTQ0ZWNmZDJlNDdkYTBiZDVjNGQzYWI1OTQ2YWI4OTRkYmM2Yzk=';
 // ====================
 
 if (!KV_URL || !KV_TOKEN) {
@@ -51,6 +53,8 @@ async function main() {
     // Upstash Redis KV REST API
     console.log(`正在向Redis写入数据，key=${key}...`);
     const url = `${KV_URL}/set/${encodeURIComponent(key)}`;
+    console.log(`请求URL: ${url}`);
+    
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -61,6 +65,8 @@ async function main() {
     });
     
     if (res.ok) {
+      const responseData = await res.json();
+      console.log('Redis响应:', responseData);
       console.log('管理员账号初始化成功！');
       console.log('请使用以下信息登录:');
       console.log(`用户名: ${ADMIN_USERNAME}`);
