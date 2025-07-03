@@ -137,6 +137,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const activations = license.activations || [];
             const lastIP = activations.length > 0 ? activations[activations.length - 1].ip : 'N/A';
 
+            // 复制内容
+            const copyText = `酒店：${license.hotelName}，AI好评回复助手激活码为：${licenseKey}，开始时间：${license.startDate || 'N/A'}，结束时间：${license.expiryDate}`;
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${licenseKey}</td>
@@ -146,7 +149,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="status-${isActive ? 'active' : 'expired'}">${isActive ? '有效' : '已过期'}</td>
                 <td>${activations.length}</td>
                 <td>${lastIP}</td>
-                <td><button class="delete-btn" data-key="${licenseKey}">删除</button></td>
+                <td>
+                  <button class="copy-btn" data-copy="${copyText}">复制</button>
+                  <button class="delete-btn" data-key="${licenseKey}">删除</button>
+                </td>
             `;
             licensesTableBody.appendChild(row);
         }
@@ -377,7 +383,51 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initial setup
     licenseForm.addEventListener('submit', saveLicense);
-    licensesTableBody.addEventListener('click', deleteLicense);
+    licensesTableBody.addEventListener('click', function(event) {
+        if (event.target.classList.contains('copy-btn')) {
+            const text = event.target.getAttribute('data-copy');
+            navigator.clipboard.writeText(text).then(() => {
+                event.target.textContent = '已复制';
+                setTimeout(() => { event.target.textContent = '复制'; }, 1200);
+            });
+            return;
+        }
+        if (!event.target.classList.contains('delete-btn')) return;
+        
+        if (!isAuthenticated) {
+            alert('请先登录');
+            showLoginForm();
+            return;
+        }
+
+        const licenseKey = event.target.dataset.key;
+        if (!confirm(`确定要删除授权码 "${licenseKey}" 吗？此操作不可撤销。`)) return;
+        
+        const cleanLicenseKey = licenseKey.replace(/\*/g, '');
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/licenses`, {
+                method: 'DELETE',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ licenseKey: cleanLicenseKey })
+            });
+            
+            if (response.status === 401) {
+                isAuthenticated = false;
+                showLoginForm();
+                return;
+            }
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            alert('删除成功！');
+            fetchLicenses();
+
+        } catch (error) {
+            console.error('Error deleting license:', error);
+            alert('删除失败，请查看控制台获取详情。');
+        }
+    });
     generateKeyBtn.addEventListener('click', generateRandomKey);
     
     // 登录处理
@@ -418,11 +468,9 @@ document.addEventListener('DOMContentLoaded', () => {
     showLoginForm();
     setupLoginForm();
     
-    // 添加一个按钮，用于添加默认授权码
-    const addDefaultBtn = document.createElement('button');
-    addDefaultBtn.textContent = '添加默认授权码 (JD-FIRST-KEY)';
-    addDefaultBtn.style.marginTop = '20px';
-    addDefaultBtn.style.backgroundColor = '#9b59b6';
-    addDefaultBtn.addEventListener('click', addDefaultLicense);
-    mainContainer.appendChild(addDefaultBtn);
+    // 隐藏添加默认授权码按钮
+    const addDefaultBtn = document.querySelector('button');
+    if (addDefaultBtn && addDefaultBtn.textContent.includes('添加默认授权码')) {
+        addDefaultBtn.style.display = 'none';
+    }
 }); 
