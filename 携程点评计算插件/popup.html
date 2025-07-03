@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>携程点评计算器</title>
+    <link rel="stylesheet" type="text/css" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <h2>携程点评计算器 V2.5</h2>
+        
+        <div class="input-section">
+            <button id="getData" class="btn btn-primary">获取当前页面数据</button>
+            
+            <div class="input-group">
+                <label for="currentScore">当前评分：</label>
+                <input type="number" id="currentScore" step="0.1" min="0" max="5" placeholder="当前评分">
+            </div>
+
+            <div class="input-group">
+                <label for="totalReviews">当前点评数：</label>
+                <input type="number" id="totalReviews" min="0" placeholder="当前点评数">
+            </div>
+
+            <div class="input-group">
+                <label for="targetScore">目标评分：</label>
+                <input type="number" id="targetScore" step="0.1" min="0" max="5" placeholder="目标评分">
+            </div>
+
+            <button id="calculate" class="btn btn-calculate">计算所需点评数</button>
+        </div>
+
+        <div id="error" class="message error" style="display: none;"></div>
+        
+        <div id="result" class="result-section" style="display: none;">
+            <h3>计算结果</h3>
+            <div class="result-content"></div>
+            <div class="suggestions">
+                <h4>提升建议</h4>
+                <div class="suggestions-content"></div>
+            </div>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html> 

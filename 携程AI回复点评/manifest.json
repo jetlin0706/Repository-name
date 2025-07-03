@@ -1,0 +1,86 @@
+{
+  "manifest_version": 3,
+  "name": "携程/美团 AI回复助手",
+  "version": "6.0.6",
+  "description": "在携程和美团酒店后台，使用AI一键回复客人点评。",
+  "permissions": [
+    "storage",
+    "scripting",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://*.ctrip.com/*",
+    "*://*.meituan.com/*",
+    "*://*.ebooking.ctrip.com/*",
+    "*://*.dianping.com/*",
+    "*://e.meituan.com/*",
+    "*://b.meituan.com/*",
+    "*://waimai.meituan.com/*",
+    "*://bizweb.dianping.com/*",
+    "*://me.meituan.com/*",
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.ctrip.com/*", 
+        "*://*.meituan.com/*", 
+        "*://*.ebooking.ctrip.com/*",
+        "*://*.dianping.com/*",
+        "*://e.meituan.com/*",
+        "*://b.meituan.com/*",
+        "*://waimai.meituan.com/*",
+        "*://bizweb.dianping.com/*",
+        "*://me.meituan.com/*",
+        "*://*/*"
+      ],
+      "js": ["content_script.js"],
+      "css": ["style.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon.png",
+      "32": "icons/icon.png",
+      "48": "icons/icon.png",
+      "128": "icons/icon.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon.png",
+    "32": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [ 
+        "icons/*", 
+        "style.css",
+        "icons/ai-icon.svg",
+        "icons/friendly.svg",
+        "icons/humorous.svg",
+        "icons/loading.svg"
+      ],
+      "matches": [ 
+        "*://*.ctrip.com/*", 
+        "*://*.meituan.com/*", 
+        "*://*.ebooking.ctrip.com/*",
+        "*://*.dianping.com/*",
+        "*://e.meituan.com/*",
+        "*://b.meituan.com/*",
+        "*://waimai.meituan.com/*",
+        "*://bizweb.dianping.com/*",
+        "*://me.meituan.com/*",
+        "<all_urls>"
+      ]
+    }
+  ]
+} 

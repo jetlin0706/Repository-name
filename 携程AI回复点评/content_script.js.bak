@@ -1,0 +1,980 @@
+/**
+ * @file 携程/美团 AI回复助手内容脚本
+ * @version 6.0.0 (全面优化版)
+ * 
+ * 本脚本负责在页面上注入AI回复按钮，并处理相关的UI交互。
+ * 采用多种方法确保按钮正确注入到不同平台的页面中。
+ */
+
+(() => {
+    // 防止重复注入
+    if (window.aiReplyScriptLoaded) {
+        console.log("AI回复助手脚本已经加载，跳过重复注入");
+        return;
+    }
+    
+    window.aiReplyScriptLoaded = true;
+    
+    // 向后台发送日志
+    function sendLog(message) {
+        console.log(`[AI助手] ${message}`);
+        try {
+            chrome.runtime.sendMessage({ 
+                action: 'log', 
+                message: message 
+            });
+        } catch (e) {
+            console.error("发送日志失败:", e);
+        }
+    }
+    
+    sendLog("脚本 v6.0.0 开始注入");
+    sendLog("当前URL: " + window.location.href);
+    
+    // 定义不同平台的选择器
+    const SELECTORS = {
+        // 携程选择器
+        ctrip: {
+            commentBlock: '.he-trip-kit-ui-space-item, .c-comment-item, .comment-item',
+            replyTarget: 'a[he-click="appeal_note"], a.c-reply-button, button.c-reply-button, a[class*="reply"], button[class*="reply"]',
+            commentText: '.c14x9pna, .comment-item-content-part, [class*="comment-content"], .c-comment-content'
+        },
+        // 美团选择器 - 更新为更精确的选择器
+        meituan: {
+            commentBlock: '.feedback-list__item, .comment-item, [class*="comment-item"], tr:has(td.c-comment-content), .c-comment-item, table tr',
+            replyTarget: 'a.feedback-list__item-reply, a[class*="reply"], button[class*="reply"], .comment-footer',
+            commentText: 'div.feedback-list__item-comment, [class*="comment-content"], [class*="content"], td.c-comment-content'
+        }
+    };
+    
+    // 美团酒店商家后台特定选择器
+    const MEITUAN_MERCHANT_SELECTORS = {
+        commentBlock: 'tr',
+        replyTarget: 'a',  // 我们将使用文本内容过滤
+        commentText: 'td'  // 我们将使用文本内容过滤
+    };
+    
+    // 判断当前网站类型
+    function getCurrentPlatform() {
+        const url = window.location.href;
+        sendLog("检测平台，当前URL: " + url);
+        if (url.includes('meituan') || url.includes('dianping') || url.includes('美团')) {
+            sendLog("检测到美团平台");
+            return 'meituan';
+        }
+        sendLog("检测到携程平台");
+        return 'ctrip'; // 默认为携程
+    }
+    
+    /**
+     * 查找包含特定文本的元素
+     * 替代jQuery的:contains选择器
+     */
+    function findElementsContainingText(selector, text) {
+        const elements = document.querySelectorAll(selector);
+        return Array.from(elements).filter(el => 
+            el.textContent && el.textContent.includes(text)
+        );
+    }
+    
+    /**
+     * 初始化
+     */
+    function init() {
+        sendLog('开始初始化');
+        
+        // 注入样式
+        injectStyles();
+        
+        // 强制注入AI按钮，不检查enabled状态
+        injectAiButtons();
+        
+        // 设置定期检查
+        setInterval(() => {
+            // 检查是否有新的评论项
+            injectAiButtons();
+        }, 3000); // 每3秒检查一次
+    }
+    
+    /**
+     * 记录页面结构信息，帮助调试
+     */
+    function logPageStructure() {
+        sendLog("开始记录页面结构");
+        
+        // 检查美团评论块
+        const meitaunSelectors = [
+            '.feedback-list__item', 
+            '.comment-item', 
+            '[class*="comment-item"]',
+            'tr:has(td.c-comment-content)',
+            '.c-comment-item',
+            'table tr'
+        ];
+        
+        meitaunSelectors.forEach(selector => {
+            try {
+                const elements = document.querySelectorAll(selector);
+                sendLog(`找到 ${selector} 元素: ${elements.length}个`);
+                
+                if (elements.length > 0) {
+                    const sample = elements[0];
+                    sendLog(`样本元素类名: ${sample.className}`);
+                    sendLog(`样本元素HTML结构: ${sample.outerHTML.substring(0, 100)}...`);
+                }
+            } catch (e) {
+                sendLog(`选择器 ${selector} 查询失败: ${e.message}`);
+            }
+        });
+        
+        // 查找修改回复按钮
+        const replyButtons = findElementsContainingText('a', '修改回复');
+        sendLog(`找到包含"修改回复"文本的a元素: ${replyButtons.length}个`);
+        
+        // 查找回复按钮
+        const replyButtons2 = findElementsContainingText('a', '回复');
+        sendLog(`找到包含"回复"文本的a元素: ${replyButtons2.length}个`);
+    }
+    
+    /**
+     * 设置DOM观察器
+     */
+    function setupObserver(platform) {
+        const selectors = SELECTORS[platform];
+        
+        const observer = new MutationObserver((mutations) => {
+            let shouldScan = false;
+            
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length) {
+                    for (const node of mutation.addedNodes) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            // 检查是否添加了评论块或其父元素
+                            if (node.matches && (
+                                node.matches(selectors.commentBlock) || 
+                                node.querySelector(selectors.commentBlock)
+                            )) {
+                                shouldScan = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (shouldScan) break;
+            }
+            
+            if (shouldScan) {
+                sendLog("检测到DOM变化，重新扫描");
+                scanAndInject(platform);
+            }
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        sendLog("DOM观察器已设置");
+    }
+    
+    /**
+     * 扫描页面并注入AI按钮
+     */
+    function scanAndInject(platform) {
+        const selectors = SELECTORS[platform];
+        
+        // 美团商家后台特殊处理
+        if (platform === 'meituan' && (document.title.includes('美团') || document.title.includes('商家'))) {
+            injectToMeituanMerchant();
+            return;
+        }
+        
+        const commentBlocks = document.querySelectorAll(selectors.commentBlock);
+        
+        sendLog(`找到 ${commentBlocks.length} 个评论块`);
+        
+        // 如果是美团平台且没有找到评论块，尝试直接查找表格行
+        if (platform === 'meituan' && commentBlocks.length === 0) {
+            sendLog("美团平台未找到评论块，尝试查找表格行");
+            
+            // 查找所有表格行
+            const tableRows = document.querySelectorAll('table tr');
+            sendLog(`找到 ${tableRows.length} 个表格行`);
+            
+            // 查找所有回复按钮
+            const replyButtons = findElementsContainingText('a', '回复');
+            sendLog(`找到 ${replyButtons.length} 个回复按钮`);
+            
+            // 为每个回复按钮注入AI按钮
+            replyButtons.forEach((button, index) => {
+                if (!button.dataset.aiButtonInjected) {
+                    button.dataset.aiButtonInjected = 'true';
+                    createAndInjectButton(button, button.closest('tr') || document.body, platform);
+                    sendLog(`直接向回复按钮 #${index} 注入AI按钮`);
+                }
+            });
+        }
+        
+        let injectedCount = 0;
+        
+        commentBlocks.forEach((block, index) => {
+            // 跳过已处理的块
+            if (block.dataset.aiButtonInjected === 'true') return;
+            
+            sendLog(`处理评论块 #${index}`);
+            
+            // 标记为已处理
+            block.dataset.aiButtonInjected = 'true';
+            
+            // 寻找回复按钮或其他注入点
+            let targetElement = block.querySelector(selectors.replyTarget);
+            
+            // 如果没找到明确的目标，尝试寻找任何包含"回复"文本的元素
+            if (!targetElement) {
+                sendLog(`评论块 #${index} 未找到标准回复按钮，尝试查找文本匹配`);
+                const allElements = block.querySelectorAll('a, button, span');
+                for (const el of allElements) {
+                    if (el.textContent && (
+                        el.textContent.includes('回复') || 
+                        el.textContent.includes('反馈') ||
+                        el.textContent.includes('修改')
+                    )) {
+                        targetElement = el;
+                        sendLog(`通过文本匹配找到目标元素: ${el.tagName} - ${el.textContent}`);
+                        break;
+                    }
+                }
+            } else {
+                sendLog(`评论块 #${index} 找到标准回复按钮: ${targetElement.tagName}`);
+            }
+            
+            // 如果仍然没找到，使用评论块本身
+            if (!targetElement) {
+                targetElement = block;
+                sendLog(`评论块 #${index} 未找到任何回复按钮，使用评论块本身作为目标`);
+            }
+            
+            // 创建并注入按钮
+            if (targetElement) {
+                createAndInjectButton(targetElement, block, platform);
+                injectedCount++;
+            }
+        });
+        
+        sendLog(`本次共注入 ${injectedCount} 个AI按钮`);
+        
+        // 如果没有注入任何按钮，尝试直接注入到页面上的特定位置
+        if (injectedCount === 0 && platform === 'meituan') {
+            sendLog("未注入任何按钮，尝试直接注入到页面");
+            injectFloatingButton();
+        }
+    }
+    
+    /**
+     * 专门针对美团商家后台的注入方法
+     */
+    function injectToMeituanMerchant() {
+        sendLog("开始针对美团商家后台注入");
+        
+        // 先清除所有已注入的AI按钮，防止重复
+        removeAllMeituanButtons();
+        
+        // 查找所有点评项
+        const feedbackItems = document.querySelectorAll('.feedback-list__item');
+        sendLog(`找到 ${feedbackItems.length} 个点评项`);
+        
+        let injectedCount = 0;
+        
+        // 为每个点评项添加AI按钮
+        feedbackItems.forEach((item, index) => {
+            // 检查是否已经注入过AI按钮
+            if (item.querySelector('.ai-button-meituan')) {
+                return; // 已有按钮，跳过
+            }
+            
+            // 查找举报按钮
+            const reportButton = item.querySelector('.feedback-list__item-report');
+            if (reportButton) {
+                // 创建AI按钮 - 使用圆形按钮
+                const aiButton = document.createElement('div');
+                aiButton.className = 'ai-button-meituan';
+                aiButton.style.cssText = `
+                    margin-top: 10px;
+                    width: 28px;
+                    height: 28px;
+                    background: linear-gradient(135deg, #4776E6, #8E54E9);
+                    border-radius: 50%;
+                    color: white;
+                    text-decoration: none;
+                    font-size: 14px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    margin-left: auto;
+                    margin-right: auto;
+                `;
+                
+                // 使用AI文本而非图标
+                aiButton.innerHTML = `<span style="font-weight: bold; color: white; font-size: 12px;">AI</span>`;
+                
+                // 添加点击事件
+                aiButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 获取整个点评项
+                    const commentBlock = item;
+                    handleAiButtonClick(commentBlock, aiButton, 'meituan');
+                });
+                
+                // 插入到举报按钮的父元素中，作为最后一个子元素
+                reportButton.parentNode.appendChild(aiButton);
+                sendLog(`成功在点评项 #${index} 的举报按钮下方注入AI按钮`);
+                injectedCount++;
+            }
+        });
+        
+        // 如果没有找到举报按钮，尝试其他方法
+        if (injectedCount === 0) {
+            sendLog("未找到举报按钮，尝试其他方法");
+            
+            // 查找所有用户信息区域
+            const userInfoBlocks = document.querySelectorAll('.feedback-list__user-info');
+            userInfoBlocks.forEach((block, index) => {
+                // 检查是否已经注入过AI按钮
+                if (block.querySelector('.ai-button-meituan')) {
+                    return; // 已有按钮，跳过
+                }
+                
+                // 创建AI按钮 - 使用圆形按钮
+                const aiButton = document.createElement('div');
+                aiButton.className = 'ai-button-meituan';
+                aiButton.style.cssText = `
+                    margin-top: 10px;
+                    width: 28px;
+                    height: 28px;
+                    background: linear-gradient(135deg, #4776E6, #8E54E9);
+                    border-radius: 50%;
+                    color: white;
+                    text-decoration: none;
+                    font-size: 14px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    margin-left: auto;
+                    margin-right: auto;
+                `;
+                
+                // 使用AI文本而非图标
+                aiButton.innerHTML = `<span style="font-weight: bold; color: white; font-size: 12px;">AI</span>`;
+                
+                // 添加点击事件
+                aiButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 获取整个点评项
+                    const commentBlock = block.closest('.feedback-list__item') || block.closest('li');
+                    handleAiButtonClick(commentBlock, aiButton, 'meituan');
+                });
+                
+                // 添加到用户信息区域的末尾
+                block.appendChild(aiButton);
+                sendLog(`成功在用户信息区域 #${index} 注入AI按钮`);
+                injectedCount++;
+            });
+        }
+        
+        // 如果仍然没有注入任何按钮，尝试直接查找li元素
+        if (injectedCount === 0) {
+            sendLog("尝试查找li元素");
+            const liElements = document.querySelectorAll('li[feedback-item]');
+            liElements.forEach((li, index) => {
+                const userInfoBlock = li.querySelector('.feedback-list__user-info');
+                
+                // 检查是否已经注入过AI按钮
+                if (userInfoBlock && !userInfoBlock.querySelector('.ai-button-meituan')) {
+                    // 创建AI按钮 - 使用圆形按钮
+                    const aiButton = document.createElement('div');
+                    aiButton.className = 'ai-button-meituan';
+                    aiButton.style.cssText = `
+                        margin-top: 10px;
+                        width: 28px;
+                        height: 28px;
+                        background: linear-gradient(135deg, #4776E6, #8E54E9);
+                        border-radius: 50%;
+                        color: white;
+                        text-decoration: none;
+                        font-size: 14px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                        margin-left: auto;
+                        margin-right: auto;
+                    `;
+                    
+                    // 使用AI文本而非图标
+                    aiButton.innerHTML = `<span style="font-weight: bold; color: white; font-size: 12px;">AI</span>`;
+                    
+                    // 添加点击事件
+                    aiButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleAiButtonClick(li, aiButton, 'meituan');
+                    });
+                    
+                    // 添加到用户信息区域的末尾
+                    userInfoBlock.appendChild(aiButton);
+                    sendLog(`成功在li元素 #${index} 的用户信息区域注入AI按钮`);
+                    injectedCount++;
+                }
+            });
+        }
+        
+        sendLog(`共注入了 ${injectedCount} 个AI按钮`);
+    }
+    
+    /**
+     * 移除所有美团按钮
+     */
+    function removeAllMeituanButtons() {
+        // 移除美团商家后台的按钮
+        const meituanButtons = document.querySelectorAll('.ai-button-meituan, .feedback-list__item-ai');
+        meituanButtons.forEach(button => {
+            button.remove();
+        });
+        
+        // 重置所有已注入标记
+        const userInfoBlocks = document.querySelectorAll('.feedback-list__user-info');
+        userInfoBlocks.forEach(block => {
+            block.removeAttribute('data-ai-button-injected');
+        });
+        
+        const reportButtons = document.querySelectorAll('.feedback-list__item-report');
+        reportButtons.forEach(button => {
+            button.removeAttribute('data-ai-button-injected');
+        });
+        
+        sendLog('所有美团AI按钮已移除');
+    }
+    
+    /**
+     * 针对携程的注入方法
+     */
+    function injectToCtripPage() {
+        sendLog("开始针对携程注入");
+        
+        // 清除之前可能注入的所有AI按钮，防止重复
+        const existingButtons = document.querySelectorAll('.ai-reply-button-wrapper.ctrip-wrapper');
+        existingButtons.forEach(button => button.remove());
+        
+        // 查找所有包含"反馈异常点评"的链接
+        const feedbackLinks = findElementsContainingText('a', '反馈异常点评');
+        sendLog(`找到 ${feedbackLinks.length} 个"反馈异常点评"链接`);
+        
+        let injectedCount = 0;
+        
+        // 为每个反馈异常点评链接注入AI按钮
+        feedbackLinks.forEach((link, index) => {
+            // 检查是否已经注入过
+            const parent = link.parentElement;
+            if (parent && parent.querySelector('.ai-reply-button-wrapper.ctrip-wrapper')) {
+                return; // 已有按钮，跳过
+            }
+            
+            // 创建包装器
+            const wrapper = document.createElement('div');
+            wrapper.className = 'ai-reply-button-wrapper ctrip-wrapper';
+            wrapper.style.cssText = `
+                margin-top: 8px;
+                display: flex;
+                align-items: center;
+            `;
+            
+            // 创建AI按钮
+            const aiButton = document.createElement('button');
+            aiButton.className = 'ai-reply-button';
+            aiButton.title = 'AI生成回复';
+            
+            // 使用SVG图标
+            const iconUrl = chrome.runtime.getURL('icons/ai-icon.svg');
+            aiButton.innerHTML = `<img src="${iconUrl}" alt="AI" style="width: 20px; height: 20px;">`;
+            
+            // 添加点击事件
+            aiButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // 获取评论区块
+                const commentBlock = link.closest('.he-trip-kit-ui-space-item') || 
+                                    link.closest('.c-comment-item') || 
+                                    link.closest('.comment-item') ||
+                                    link.closest('.rm4a15u'); // 添加携程新版点评的选择器
+                handleAiButtonClick(commentBlock, aiButton, 'ctrip');
+            });
+            
+            // 添加按钮到包装器
+            wrapper.appendChild(aiButton);
+            
+            // 将包装器添加到反馈异常点评链接的父元素中
+            if (parent) {
+                parent.appendChild(wrapper);
+                sendLog(`成功在"反馈异常点评"链接 #${index} 旁注入AI按钮`);
+                injectedCount++;
+            }
+        });
+        
+        // 尝试其他可能的选择器
+        if (injectedCount === 0) {
+            // 尝试查找"反馈异常点评"按钮
+            const alternativeFeedbackLinks = document.querySelectorAll('[he-click="appeal_note"]');
+            alternativeFeedbackLinks.forEach((link, index) => {
+                // 检查是否已经注入过
+                const parent = link.parentElement;
+                if (parent && parent.querySelector('.ai-reply-button-wrapper.ctrip-wrapper')) {
+                    return; // 已有按钮，跳过
+                }
+                
+                // 创建包装器
+                const wrapper = document.createElement('div');
+                wrapper.className = 'ai-reply-button-wrapper ctrip-wrapper';
+                wrapper.style.cssText = `
+                    margin-top: 8px;
+                    display: flex;
+                    align-items: center;
+                `;
+                
+                // 创建AI按钮
+                const aiButton = document.createElement('button');
+                aiButton.className = 'ai-reply-button';
+                aiButton.title = 'AI生成回复';
+                
+                // 使用SVG图标
+                const iconUrl = chrome.runtime.getURL('icons/ai-icon.svg');
+                aiButton.innerHTML = `<img src="${iconUrl}" alt="AI" style="width: 20px; height: 20px;">`;
+                
+                // 添加点击事件
+                aiButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 获取评论区块
+                    const commentBlock = link.closest('.he-trip-kit-ui-space-item') || 
+                                        link.closest('.c-comment-item') || 
+                                        link.closest('.comment-item') ||
+                                        link.closest('.rm4a15u');
+                    handleAiButtonClick(commentBlock, aiButton, 'ctrip');
+                });
+                
+                // 添加按钮到包装器
+                wrapper.appendChild(aiButton);
+                
+                // 将包装器添加到反馈异常点评链接的父元素中
+                if (parent) {
+                    parent.appendChild(wrapper);
+                    sendLog(`成功在"反馈异常点评"按钮 #${index} 旁注入AI按钮`);
+                    injectedCount++;
+                }
+            });
+        }
+        
+        // 如果没有找到"反馈异常点评"链接，尝试其他方法
+        if (injectedCount === 0) {
+            sendLog("未找到'反馈异常点评'链接，尝试其他方法");
+            
+            // 查找评论项
+            const commentItems = document.querySelectorAll('.he-trip-kit-ui-space-item, .c-comment-item, .comment-item, .rm4a15u');
+            commentItems.forEach((item, index) => {
+                // 检查是否已经注入过
+                if (item.querySelector('.ai-reply-button-wrapper.ctrip-wrapper')) {
+                    return; // 已有按钮，跳过
+                }
+                
+                // 查找该评论项中的操作按钮区域
+                const actionArea = item.querySelector('.c1whp6lz') || 
+                                  item.querySelector('.fkpprlg') || 
+                                  item.querySelector('.he-trip-kit-ui-space-horizontal') ||
+                                  item.querySelector('.c1pwqsyn'); // 添加携程新版点评的选择器
+                
+                if (actionArea) {
+                    // 创建包装器
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'ai-reply-button-wrapper ctrip-wrapper';
+                    wrapper.style.cssText = `
+                        margin-left: 10px;
+                        display: inline-flex;
+                        align-items: center;
+                    `;
+                    
+                    // 创建AI按钮
+                    const aiButton = document.createElement('button');
+                    aiButton.className = 'ai-reply-button';
+                    aiButton.title = 'AI生成回复';
+                    
+                    // 使用SVG图标
+                    const iconUrl = chrome.runtime.getURL('icons/ai-icon.svg');
+                    aiButton.innerHTML = `<img src="${iconUrl}" alt="AI" style="width: 20px; height: 20px;">`;
+                    
+                    // 添加点击事件
+                    aiButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleAiButtonClick(item, aiButton, 'ctrip');
+                    });
+                    
+                    // 添加按钮到包装器
+                    wrapper.appendChild(aiButton);
+                    
+                    // 将包装器添加到操作区域
+                    actionArea.appendChild(wrapper);
+                    sendLog(`成功在评论项 #${index} 注入AI按钮`);
+                    injectedCount++;
+                }
+            });
+        }
+        
+        sendLog(`共注入了 ${injectedCount} 个AI按钮`);
+    }
+    
+    /**
+     * 注入浮动按钮
+     */
+    function injectFloatingButton() {
+        // 不再注入浮动按钮
+        sendLog("浮动按钮功能已禁用");
+        return; // 直接返回，不执行后续代码
+    }
+    
+    /**
+     * 创建并注入AI按钮
+     */
+    function createAndInjectButton(targetElement, commentBlock, platform) {
+        // 创建按钮
+        const button = document.createElement('button');
+        button.className = 'ai-reply-button';
+        button.title = 'AI生成回复';
+        
+        // 使用SVG图标
+        const iconUrl = chrome.runtime.getURL('icons/ai-icon.svg');
+        button.innerHTML = `<img src="${iconUrl}" alt="AI" style="width: 20px; height: 20px;">`;
+        
+        // 添加点击事件
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAiButtonClick(commentBlock, e.currentTarget, platform);
+        });
+        
+        // 创建包装容器
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ai-reply-button-wrapper';
+        wrapper.classList.add(`${platform}-wrapper`);
+        
+        // 将按钮添加到包装容器
+        wrapper.appendChild(button);
+        
+        // 根据平台决定如何插入按钮
+        if (platform === 'ctrip') {
+            // 携程平台 - 尝试插入到回复按钮旁边
+            if (targetElement.tagName === 'A' || targetElement.tagName === 'BUTTON') {
+                if (targetElement.parentNode) {
+                    targetElement.parentNode.appendChild(wrapper);
+                } else {
+                    commentBlock.appendChild(wrapper);
+                }
+            } else {
+                // 如果目标是评论块本身，添加到末尾
+                commentBlock.appendChild(wrapper);
+            }
+        } else {
+            // 美团平台 - 尝试插入到回复按钮前面
+            if (targetElement.tagName === 'A' || targetElement.tagName === 'BUTTON') {
+                if (targetElement.parentNode) {
+                    targetElement.parentNode.insertBefore(wrapper, targetElement);
+                } else {
+                    commentBlock.appendChild(wrapper);
+                }
+            } else {
+                // 如果目标是评论块本身，添加到末尾
+                commentBlock.appendChild(wrapper);
+            }
+        }
+        
+        sendLog(`成功注入一个AI按钮到: ${targetElement.tagName}`);
+    }
+    
+    /**
+     * 处理AI按钮点击
+     */
+    function handleAiButtonClick(commentBlock, buttonElement, platform) {
+        sendLog('AI按钮被点击');
+        
+        // 获取评论内容
+        const commentText = extractCommentText(commentBlock, platform);
+        
+        if (!commentText) {
+            showError('无法获取评论内容，请重试');
+            return;
+        }
+        
+        sendLog(`提取的评论内容: ${commentText.substring(0, 50)}...`);
+        
+        // 创建语气选择弹窗
+        createAiReplyDialog(commentText, commentBlock, buttonElement, platform);
+    }
+    
+    /**
+     * 提取评论内容
+     */
+    function extractCommentText(commentBlock, platform) {
+        const selectors = SELECTORS[platform];
+        
+        // 美团商家后台特殊处理
+        if (platform === 'meituan' && (document.title.includes('美团') || document.title.includes('商家'))) {
+            // 尝试提取评论内容
+            // 首先尝试找到评论文本
+            const commentElement = commentBlock.querySelector('.feedback-list__item-comment');
+            if (commentElement && commentElement.textContent) {
+                return commentElement.textContent.trim();
+            }
+            
+            // 如果没有评论文本，尝试获取评分和时间信息作为上下文
+            const scoreElement = commentBlock.querySelector('.feedback-list__item-score');
+            const timeElement = commentBlock.querySelector('.feedback-list__item-consume-prompt');
+            
+            let contextInfo = '';
+            if (scoreElement) {
+                contextInfo += '评分: 5星 ';
+            }
+            
+            if (timeElement) {
+                const timeText = timeElement.textContent.replace(/\s+/g, ' ').trim();
+                contextInfo += timeText;
+            }
+            
+            // 如果有图片，添加图片信息
+            const hasImages = commentBlock.querySelector('.image-wrapper') !== null;
+            if (hasImages) {
+                contextInfo += ' [客人上传了图片]';
+            }
+            
+            // 如果有房型信息，添加房型信息
+            const roomElement = commentBlock.querySelector('.feedback-list__item-deal-name');
+            if (roomElement) {
+                contextInfo += ' 房型: ' + roomElement.textContent.trim();
+            }
+            
+            return contextInfo || '客人给了5星好评';
+        }
+        
+        // 常规处理
+        let commentElement = commentBlock.querySelector(selectors.commentText);
+        
+        if (!commentElement) {
+            // 尝试查找任何可能包含评论内容的元素
+            const allElements = commentBlock.querySelectorAll('div, p, td, span');
+            for (const el of allElements) {
+                if (el.textContent && el.textContent.length > 20) {
+                    commentElement = el;
+                    break;
+                }
+            }
+        }
+        
+        return commentElement ? commentElement.textContent.trim() : '';
+    }
+    
+    /**
+     * 创建AI回复对话框
+     */
+    function createAiReplyDialog(commentText, commentBlock, triggerButton, platform) {
+        sendLog("创建AI回复对话框");
+        
+        // 移除已存在的对话框
+        removeExistingDialog();
+        
+        // 创建对话框容器
+        const dialog = document.createElement('div');
+        dialog.className = 'ai-reply-popup';
+        dialog.id = 'ai-reply-popup';
+        dialog.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            max-width: 90vw;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 20001;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            max-height: 80vh;
+            overflow: hidden;
+        `;
+        
+        // 创建对话框头部
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        `;
+        
+        const title = document.createElement('h3');
+        title.textContent = 'AI回复助手';
+        title.style.cssText = `
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        `;
+        
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '&times;';
+        closeButton.style.cssText = `
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0 5px;
+        `;
+        closeButton.onclick = removeExistingDialog;
+        
+        header.appendChild(title);
+        header.appendChild(closeButton);
+        
+        // 创建对话框内容
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        `;
+        
+        // 显示评论内容
+        const commentSection = document.createElement('div');
+        commentSection.style.cssText = `
+            background: #f5f7fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #666;
+        `;
+        
+        const commentLabel = document.createElement('div');
+        commentLabel.textContent = '评论内容:';
+        commentLabel.style.cssText = `
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        `;
+        
+        const commentTextEl = document.createElement('div');
+        commentTextEl.textContent = commentText || '无评论内容';
+        
+        commentSection.appendChild(commentLabel);
+        commentSection.appendChild(commentTextEl);
+        
+        // 创建语气选择
+        const toneSection = document.createElement('div');
+        toneSection.style.cssText = `
+            margin-bottom: 15px;
+        `;
+        
+        const toneLabel = document.createElement('div');
+        toneLabel.textContent = '选择回复语气:';
+        toneLabel.style.cssText = `
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        `;
+        
+        const toneButtons = document.createElement('div');
+        toneButtons.style.cssText = `
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        `;
+        
+        // 语气选项
+        const tones = [
+            { id: 'friendly', name: '友善', icon: 'friendly.svg' },
+            { id: 'professional', name: '专业', icon: 'ai-icon.svg' },
+            { id: 'apologetic', name: '道歉', icon: 'ai-icon.svg' },
+            { id: 'humorous', name: '幽默', icon: 'humorous.svg' }
+        ];
+        
+        tones.forEach(tone => {
+            const toneButton = document.createElement('button');
+            toneButton.className = 'tone-button';
+            toneButton.dataset.tone = tone.id;
+            
+            // 获取图标URL
+            const iconUrl = chrome.runtime.getURL(`icons/${tone.icon}`);
+            
+            toneButton.innerHTML = `<img src="${iconUrl}" alt="${tone.name}" style="width: 20px; height: 20px; margin-right: 5px;">${tone.name}`;
+            toneButton.style.cssText = `
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 8px 15px;
+                border: 1px solid #ddd;
+                border-radius: 20px;
+                background: white;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-size: 14px;
+                z-index: 20002;
+                position: relative;
+            `;
+            
+            toneButton.onmouseover = function() {
+                this.style.background = '#f0f0f0';
+            };
+            
+            toneButton.onmouseout = function() {
+                this.style.background = 'white';
+            };
+            
+            toneButton.onclick = function() {
+                // 移除其他按钮的选中状态
+                document.querySelectorAll('.tone-button').forEach(btn => {
+                    btn.style.background = 'white';
+                    btn.style.borderColor = '#ddd';
+                });
+                
+                // 设置当前按钮为选中状态
+                this.style.background = '#f0f7ff';
+                this.style.borderColor = '#4776E6';
+                
+                // 生成回复
+                generateReply(commentText, tone.id, commentBlock, triggerButton, platform);
+            };
+            
+            toneButtons.appendChild(toneButton);
+        });
+        
+        toneSection.appendChild(toneLabel);
+        toneSection.appendChild(toneButtons);
+        
+        // 创建回复结果区域
+        const resultSection = document.createElement('div');
+        resultSection.id = 'ai-reply-result';
+        resultSection.style.cssText = `
+            display: none;
+            margin-top: 15px;
+        `;
+        
+        const resultLabel = document.createElement('div');
+        resultLabel.textContent = 'AI生成的回复:';
+        resultLabel.style.cssText = `

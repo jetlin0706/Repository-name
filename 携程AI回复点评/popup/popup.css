@@ -1,0 +1,228 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f4f6f8;
+    margin: 0;
+    width: 320px;
+}
+
+.container {
+    padding: 16px;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e1e4e8;
+    padding-bottom: 12px;
+}
+
+.header-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+}
+
+h1 {
+    font-size: 18px;
+    margin: 0;
+    color: #24292e;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group-switch {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(71, 118, 230, 0.1), rgba(142, 84, 233, 0.1));
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(71, 118, 230, 0.3);
+}
+
+#settings-panel.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* The switch - the box around the slider */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background: linear-gradient(135deg, #4776E6, #8E54E9);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #8E54E9;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(22px);
+  -ms-transform: translateX(22px);
+  transform: translateX(22px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #586069;
+}
+
+.input-field {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #d1d5da;
+    border-radius: 6px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-field:focus {
+    border-color: #4776E6;
+    box-shadow: 0 0 0 3px rgba(71, 118, 230, 0.3);
+    outline: none;
+}
+
+footer {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#saveButton {
+    background: linear-gradient(135deg, #4776E6, #8E54E9);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 16px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s;
+    box-shadow: 0 2px 6px rgba(71, 118, 230, 0.4);
+}
+
+#saveButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(71, 118, 230, 0.5);
+}
+
+#status {
+    margin-top: 10px;
+    font-size: 13px;
+    min-height: 18px;
+    text-align: center;
+    transition: all 0.3s;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+/* 状态提示样式 */
+.status.success {
+    background-color: #e6ffed;
+    color: #22863a;
+    border: 1px solid #b4e6c8;
+}
+
+.status.error {
+    background-color: #ffeef0;
+    color: #cb2431;
+    border: 1px solid #f9c9d1;
+}
+
+.status.info {
+    background-color: #f1f8ff;
+    color: #0366d6;
+    border: 1px solid #c8e1ff;
+}
+
+#license-panel {
+    border-top: 1px solid #e1e4e8;
+    border-bottom: 1px solid #e1e4e8;
+    padding: 16px 0;
+    margin-bottom: 16px;
+}
+
+.license-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.license-input-group input {
+    flex-grow: 1;
+}
+
+#activateButton {
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#activateButton:hover {
+    background: #218838;
+}
+
+#activateButton:disabled {
+    background: #94d3a2;
+    cursor: not-allowed;
+} 

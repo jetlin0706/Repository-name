@@ -1,0 +1,16 @@
+{
+  "name": "ai-reply-verifier-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend for AI Reply Verifier",
+  "main": "api/verify.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/kv": "^1.0.0",
+    "vercel": "^32.3.0"
+  }
+} 

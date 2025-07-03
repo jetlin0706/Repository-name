@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>AI回复设置</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="../icons/ai-icon.svg" alt="icon" class="header-icon">
+            <h1>AI回复设置</h1>
+        </header>
+
+        <main>
+            <div class="form-group-switch">
+                <label for="featureEnabled">启用AI回复功能</label>
+                <label class="switch">
+                    <input type="checkbox" id="featureEnabled">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            
+            <div id="license-panel">
+                <div class="form-group">
+                    <label for="licenseKey">授权码</label>
+                    <div class="license-input-group">
+                        <input type="text" id="licenseKey" placeholder="请输入您的授权码" class="input-field">
+                        <button id="activateButton">激活</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="settings-panel">
+                <div class="form-group">
+                    <label for="hotelName">酒店自称</label>
+                    <input type="text" id="hotelName" placeholder="例如：我们酒店" class="input-field">
+                </div>
+                 <div class="form-group">
+                    <label for="hotelPhone">酒店电话 (选填)</label>
+                    <input type="text" id="hotelPhone" placeholder="在回复中可能会用到" class="input-field">
+                </div>
+                <div class="form-group">
+                    <label for="mustInclude">AI回复必须含内容</label>
+                    <textarea id="mustInclude" placeholder="酒店的地理优势，酒店的环境优势等" rows="3" class="input-field"></textarea>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <button id="saveButton">保存设置</button>
+            <div id="status" class="status"></div>
+        </footer>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html> 

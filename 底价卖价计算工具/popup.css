@@ -1,0 +1,169 @@
+body {
+  width: 360px;
+  padding: 15px;
+  font-family: 'Microsoft YaHei', sans-serif;
+  background: #f5f6fa;
+}
+
+.container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+h2 {
+  margin: 0 0 20px;
+  color: #2c3e50;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.calc-mode {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #3498db;
+  background: transparent;
+  color: #3498db;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.mode-btn.active {
+  background: #3498db;
+  color: white;
+}
+
+.calc-panel {
+  display: none;
+}
+
+.calc-panel.active {
+  display: block;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 6px;
+  color: #34495e;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e1e8ed;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.fees-section {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.section-title {
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+.calculate-btn {
+  width: 100%;
+  padding: 12px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin: 15px 0;
+}
+
+.calculate-btn:hover {
+  background: #2980b9;
+}
+
+.results {
+  margin-top: 20px;
+}
+
+.result-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.result-title {
+  background: #3498db;
+  color: white;
+  padding: 10px 15px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.result-content {
+  padding: 15px;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #34495e;
+}
+
+.result-item:last-child {
+  margin-bottom: 0;
+}
+
+.total {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 2px dashed #e1e8ed;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+/* 输入框占位符样式 */
+::placeholder {
+  color: #95a5a6;
+}
+
+/* 数字输入框箭头样式 */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+  height: 30px;
+} 

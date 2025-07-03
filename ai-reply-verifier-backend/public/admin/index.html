@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>授权码管理后台</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>授权码管理后台</h1>
+
+        <div id="dashboard" class="card">
+            <h2>仪表盘</h2>
+            <div class="stats-container">
+                <div class="stat-item">
+                    <h3>总授权数</h3>
+                    <p id="totalLicenses">0</p>
+                </div>
+                <div class="stat-item">
+                    <h3>有效授权</h3>
+                    <p id="activeLicenses">0</p>
+                </div>
+                <div class="stat-item">
+                    <h3>今日激活</h3>
+                    <p id="todayActivations">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>添加/更新授权码</h2>
+            <form id="licenseForm">
+                <div class="form-group-inline">
+                    <div class="form-group">
+                        <label for="licenseKey">授权码</label>
+                        <input type="text" id="licenseKey" name="licenseKey" required>
+                    </div>
+                    <button type="button" id="generateKeyBtn">随机生成</button>
+                </div>
+                <div class="form-group">
+                    <label for="hotelName">酒店名称</label>
+                    <input type="text" id="hotelName" name="hotelName" required>
+                </div>
+                <div class="form-group">
+                    <label for="startDate">开始时间</label>
+                    <input type="date" id="startDate" name="startDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="expiryDate">到期时间</label>
+                    <input type="date" id="expiryDate" name="expiryDate" required>
+                </div>
+                <button type="submit">保存授权码</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>已有的授权码</h2>
+            <table id="licensesTable">
+                <thead>
+                    <tr>
+                        <th>授权码</th>
+                        <th>酒店名称</th>
+                        <th>开始时间</th>
+                        <th>到期时间</th>
+                        <th>状态</th>
+                        <th>激活次数</th>
+                        <th>最近激活IP</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 

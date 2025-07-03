@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "携程点评计算器",
+  "version": "2.5",
+  "description": "计算达到目标点评分所需的点评数量",
+  "permissions": [
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.ctrip.com/*",
+    "*://*.trip.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.css"],
+      "matches": ["*://*.ctrip.com/*"]
+    }
+  ]
+} 
