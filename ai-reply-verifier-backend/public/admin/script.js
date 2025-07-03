@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('初始化管理后台脚本...');
     // 使用相对路径，确保API路径正确
     const apiBaseUrl = '/api/admin';
     let password = null;
@@ -42,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 隐藏主要内容，显示登录表单
     function showLoginForm() {
+        console.log('显示登录表单');
         // 显示内置登录表单
         if (loginContainer) {
             loginContainer.style.display = 'block';
@@ -86,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 显示主要内容，隐藏登录表单
     function showMainContent() {
+        console.log('显示主内容');
         if (loginContainer) {
             loginContainer.style.display = 'none';
         }
@@ -112,34 +115,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 封装fetch，自动处理401
     async function apiFetch(url, options = {}) {
-        const headers = options.headers || {};
-        options.headers = { ...headers, ...getAuthHeaders() };
-        
-        const resp = await fetch(url, options);
-        if (resp.status === 401) {
-            // 清除token
-            localStorage.removeItem('token');
-            jwtToken = null;
-            isAuthenticated = false;
-            currentUser = null;
+        try {
+            const headers = options.headers || {};
+            options.headers = { ...headers, ...getAuthHeaders() };
             
-            showLoginForm();
-            if (loginMessage) {
-                loginMessage.textContent = '登录已过期，请重新登录';
-            } else if (document.getElementById('loginMessage')) {
-                document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
+            console.log(`请求API: ${url}`, options);
+            const resp = await fetch(url, options);
+            console.log(`API响应状态: ${resp.status}`);
+            
+            if (resp.status === 401) {
+                // 清除token
+                localStorage.removeItem('token');
+                jwtToken = null;
+                isAuthenticated = false;
+                currentUser = null;
+                
+                showLoginForm();
+                if (loginMessage) {
+                    loginMessage.textContent = '登录已过期，请重新登录';
+                } else if (document.getElementById('loginMessage')) {
+                    document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
+                }
+                throw new Error('401 Unauthorized');
             }
-            throw new Error('401 Unauthorized');
+            return resp;
+        } catch (error) {
+            console.error(`API请求失败: ${url}`, error);
+            throw error;
         }
-        return resp;
     }
 
     // 获取仪表盘数据
     async function fetchDashboard() {
         try {
+            console.log('获取仪表盘数据...');
             const resp = await apiFetch(`${apiBaseUrl}/dashboard`);
             if (resp.ok) {
                 const data = await resp.json();
+                console.log('仪表盘数据:', data);
                 updateDashboardStats(data);
             }
         } catch (error) {
@@ -293,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveLicense(event) {
         event.preventDefault();
+        console.log('保存授权码...');
         
         if (!isAuthenticated) {
             alert('请先登录');
@@ -310,6 +324,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        // 检查日期是否有效
+        if (!startDateInput.value) {
+            alert('请选择开始日期');
+            return;
+        }
+        
+        if (!expiryDateInput.value) {
+            alert('请选择到期日期');
+            return;
+        }
+        
         const licenseData = {
             licenseKey: licenseKeyInput.value.trim(),
             hotelName: hotelNameInput.value.trim(),
@@ -321,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('保存授权码数据:', licenseData);
             const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                 method: 'POST',
-                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(licenseData)
             });
 
@@ -376,18 +401,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateRandomKey() {
+        console.log('生成随机授权码');
         const prefix = "HOTEL";
         const randomPart = Math.random().toString(36).substring(2, 10).toUpperCase();
         licenseKeyInput.value = `${prefix}-${randomPart}`;
     }
 
     function setDefaultDates() {
+        console.log('设置默认日期');
         const today = new Date();
         const oneYearLater = new Date(today);
         oneYearLater.setFullYear(today.getFullYear() + 1);
         
-        startDateInput.value = today.toISOString().split('T')[0];
-        expiryDateInput.value = oneYearLater.toISOString().split('T')[0];
+        // 格式化日期为YYYY-MM-DD格式
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        
+        startDateInput.value = formatDate(today);
+        expiryDateInput.value = formatDate(oneYearLater);
+        
+        // 确保日期选择器可用
+        startDateInput.type = 'date';
+        expiryDateInput.type = 'date';
     }
 
     async function login(password) {
@@ -461,48 +500,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('添加默认授权码出错: ' + error.message);
         }
     }
-    
-    // Initial setup
-    licenseForm.addEventListener('submit', saveLicense);
-    licensesTableBody.addEventListener('click', async function(event) {
-        if (event.target.classList.contains('copy-btn')) {
-            const text = event.target.getAttribute('data-copy');
-            await navigator.clipboard.writeText(text);
-            event.target.textContent = '已复制';
-            setTimeout(() => { event.target.textContent = '复制'; }, 1200);
-            return;
-        }
-        if (!event.target.classList.contains('delete-btn')) return;
-        
-        if (!isAuthenticated) {
-            alert('请先登录');
-            showLoginForm();
-            return;
-        }
-
-        const licenseKey = event.target.dataset.key;
-        if (!confirm(`确定要删除授权码 "${licenseKey}" 吗？此操作不可撤销。`)) return;
-        
-        const cleanLicenseKey = licenseKey.replace(/\*/g, '');
-
-        try {
-            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
-                method: 'DELETE',
-                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ licenseKey: cleanLicenseKey })
-            });
-            
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-            alert('删除成功！');
-            fetchLicenses();
-
-        } catch (error) {
-            console.error('Error deleting license:', error);
-            alert('删除失败，请查看控制台获取详情。');
-        }
-    });
-    generateKeyBtn.addEventListener('click', generateRandomKey);
     
     // 登录处理
     function handleLogin() {
@@ -631,23 +628,97 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // 初始化表单和按钮
+    function initFormAndButtons() {
+        console.log('初始化表单和按钮');
+        // 移除可能存在的旧事件监听器
+        if (licenseForm) {
+            licenseForm.removeEventListener('submit', saveLicense);
+            licenseForm.addEventListener('submit', saveLicense);
+            console.log('表单提交事件已绑定');
+        }
+        
+        if (generateKeyBtn) {
+            generateKeyBtn.removeEventListener('click', generateRandomKey);
+            generateKeyBtn.addEventListener('click', generateRandomKey);
+            console.log('随机生成按钮事件已绑定');
+        }
+        
+        // 绑定表格操作事件
+        if (licensesTableBody) {
+            // 使用事件委托处理按钮点击
+            licensesTableBody.onclick = async function(event) {
+                // 复制功能
+                if (event.target.classList.contains('copy-btn')) {
+                    const text = event.target.getAttribute('data-copy');
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        event.target.textContent = '已复制';
+                        setTimeout(() => { event.target.textContent = '复制'; }, 1200);
+                    } catch (err) {
+                        console.error('复制失败:', err);
+                        alert('复制失败: ' + err.message);
+                    }
+                    return;
+                }
+                
+                // 删除功能
+                if (event.target.classList.contains('delete-btn')) {
+                    if (!isAuthenticated) {
+                        alert('请先登录');
+                        showLoginForm();
+                        return;
+                    }
+                    
+                    const licenseKey = event.target.dataset.key;
+                    if (!confirm(`确定要删除授权码 "${licenseKey}" 吗？此操作不可撤销。`)) return;
+                    
+                    const cleanLicenseKey = licenseKey.replace(/\*/g, '');
+                    
+                    try {
+                        const response = await apiFetch(`${apiBaseUrl}/licenses`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ licenseKey: cleanLicenseKey })
+                        });
+                        
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        
+                        alert('删除成功！');
+                        fetchLicenses();
+                    } catch (error) {
+                        console.error('Error deleting license:', error);
+                        alert('删除失败，请查看控制台获取详情。');
+                    }
+                }
+            };
+            console.log('表格操作事件已绑定');
+        }
+        
+        // 确保日期选择器可用
+        setDefaultDates();
+    }
+    
     // 初始化
-    setDefaultDates();
+    initFormAndButtons();
     setupLoginForm();
     
     // 检查是否有token，有则尝试自动登录
     if (jwtToken) {
+        console.log('检测到token，尝试自动登录');
         // 尝试获取用户信息
         fetch(`${apiBaseUrl}/accounts/me`, {
             headers: { 'Authorization': `Bearer ${jwtToken}` }
         })
         .then(resp => {
+            console.log('获取用户信息响应:', resp.status);
             if (!resp.ok) {
                 throw new Error('Token无效');
             }
             return resp.json();
         })
         .then(data => {
+            console.log('获取到用户信息:', data);
             if (data.user) {
                 loginAndInit(jwtToken, data.user);
             } else {
@@ -660,6 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoginForm();
         });
     } else {
+        console.log('没有token，显示登录表单');
         // 没有token，显示登录表单
         showLoginForm();
     }

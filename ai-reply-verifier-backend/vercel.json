@@ -6,6 +6,12 @@
             "maxDuration": 10
         }
     },
+    "redirects": [
+        { "source": "/", "destination": "/admin/", "permanent": true }
+    ],
+    "rewrites": [
+        { "source": "/api/(.*)", "destination": "/api/$1" }
+    ],
     "headers": [
         {
             "source": "/api/(.*)",
