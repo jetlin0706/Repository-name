@@ -279,6 +279,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
+// === 新增：激活码实时校验接口 ===
+const VERIFIER_URL = 'https://repository-name-v2.vercel.app/api/verify';
+
 // 处理AI回复生成请求
 async function handleGetAiReply(request) {
     const { tone, commentText } = request;
@@ -287,13 +290,40 @@ async function handleGetAiReply(request) {
     try {
         // 授权检查
         const activationStatus = await new Promise(resolve => {
-            chrome.storage.local.get(['isActivated'], result => resolve(result));
+            chrome.storage.local.get(['isActivated', 'licenseKey'], result => resolve(result));
         });
 
         if (activationStatus.isActivated !== true) {
             addLog("拒绝AI回复请求：未授权");
             return { success: false, message: "功能未激活，请输入有效授权码后使用。" };
         }
+
+        // === 新增：每次AI调用前实时校验激活码 ===
+        const licenseKey = activationStatus.licenseKey;
+        if (!licenseKey) {
+            addLog("本地未找到授权码，拒绝AI回复请求");
+            return { success: false, message: "未检测到授权码，请重新激活。" };
+        }
+        // 实时向后端校验激活码
+        let verifyResult;
+        try {
+            const verifyResp = await fetch(VERIFIER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ licenseKey })
+            });
+            verifyResult = await verifyResp.json();
+        } catch (e) {
+            addLog(`激活码校验请求失败: ${e.message}`);
+            return { success: false, message: "授权码校验失败，请检查网络或联系管理员。" };
+        }
+        if (!verifyResult || !verifyResult.valid) {
+            addLog(`激活码实时校验失败: ${verifyResult?.message || '无效授权码'}`);
+            // 失效时自动清除本地激活状态
+            await chrome.storage.local.set({ isActivated: false });
+            return { success: false, message: verifyResult?.message || "授权码无效或已被移除，请重新激活。" };
+        }
+        // === 实时校验通过，继续AI回复 ===
 
         const settings = await new Promise((resolve, reject) => {
             chrome.storage.local.get(['hotelName', 'hotelPhone', 'mustInclude'], (result) => {
