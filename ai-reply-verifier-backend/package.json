@@ -2,7 +2,7 @@
   "name": "ai-reply-verifier-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Backend for AI Reply Verifier！",
+  "description": "Backend for AI Reply Verifier！!",
   "main": "api/verify.js",
   "scripts": {
     "start": "vercel dev"
