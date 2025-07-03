@@ -24,6 +24,11 @@ export default async function handler(request, response) {
       return response.status(400).json({ valid: false, message: 'License key is required' });
     }
 
+    // 硬编码授权码用于测试
+    if (licenseKey === 'JD-FIRST-KEY') {
+      return response.status(200).json({ valid: true, message: 'License verified successfully.' });
+    }
+
     const licenseDataString = await kv.hget('licenses', licenseKey);
 
     if (!licenseDataString) {
