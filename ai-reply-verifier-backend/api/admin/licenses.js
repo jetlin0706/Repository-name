@@ -1,6 +1,7 @@
 import { kv } from '@vercel/kv';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin'; // 添加默认密码用于测试
+// 将密码硬编码以进行测试，绕过Vercel环境变量问题
+const ADMIN_PASSWORD = 'HotelAI-Admin-2024!';
 
 // Middleware for authentication
 function auth(request) {
