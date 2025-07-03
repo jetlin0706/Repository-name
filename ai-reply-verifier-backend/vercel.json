@@ -16,11 +16,5 @@
                 { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
             ]
         }
-    ],
-    "routes": [
-        { "src": "/admin", "dest": "/api/admin" },
-        { "src": "/admin/style.css", "dest": "/api/admin/style" },
-        { "src": "/admin/script.js", "dest": "/api/admin/script" },
-        { "src": "/", "dest": "/api/index" }
     ]
 } 
