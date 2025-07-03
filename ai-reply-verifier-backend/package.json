@@ -10,7 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@upstash/redis": "^1.22.0",
     "@vercel/kv": "^1.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "next": "^13.4.19",
     "node-fetch": "^2.7.0",
     "vercel": "^32.3.0"
   }
