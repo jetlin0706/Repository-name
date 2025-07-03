@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiBaseUrl = '/api/admin';
     let password = null;
     let allLicenses = {}; // Cache for licenses
+    let isAuthenticated = false; // 添加认证状态标志
 
     // DOM Elements
     const licenseForm = document.getElementById('licenseForm');
@@ -17,6 +18,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalLicensesEl = document.getElementById('totalLicenses');
     const activeLicensesEl = document.getElementById('activeLicenses');
     const todayActivationsEl = document.getElementById('todayActivations');
+
+    // 添加登录表单
+    const mainContainer = document.querySelector('.container');
+    const loginContainer = document.createElement('div');
+    loginContainer.className = 'login-container card';
+    loginContainer.innerHTML = `
+        <h2>管理员登录</h2>
+        <div class="form-group">
+            <label for="adminPassword">管理员密码</label>
+            <input type="password" id="adminPassword" placeholder="请输入管理员密码">
+        </div>
+        <button id="loginBtn">登录</button>
+        <p id="loginMessage" class="error-message"></p>
+    `;
+    
+    // 隐藏主要内容，显示登录表单
+    function showLoginForm() {
+        // 隐藏所有子元素
+        Array.from(mainContainer.children).forEach(child => {
+            if (child !== loginContainer) {
+                child.style.display = 'none';
+            }
+        });
+        
+        // 显示登录表单
+        mainContainer.prepend(loginContainer);
+        document.getElementById('adminPassword').focus();
+    }
+    
+    // 显示主要内容，隐藏登录表单
+    function showMainContent() {
+        loginContainer.style.display = 'none';
+        Array.from(mainContainer.children).forEach(child => {
+            if (child !== loginContainer) {
+                child.style.display = '';
+            }
+        });
+    }
 
     function getAuthHeaders() {
         if (!password) return {};
@@ -35,12 +74,17 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('获取授权码响应状态:', response.status);
             
             if (response.status === 401) {
-                alert('获取授权码列表失败，请检查密码或网络连接。');
-                promptForPassword(); // 重新提示输入密码
+                isAuthenticated = false;
+                showLoginForm();
+                document.getElementById('loginMessage').textContent = '密码错误或未授权，请重新登录';
                 return;
             }
+            
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
+            isAuthenticated = true;
+            showMainContent();
+            
             allLicenses = await response.json();
             console.log('获取到的授权码数据:', allLicenses);
             renderLicenses(allLicenses);
@@ -151,6 +195,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveLicense(event) {
         event.preventDefault();
         
+        if (!isAuthenticated) {
+            alert('请先登录');
+            showLoginForm();
+            return;
+        }
+        
         if (!licenseKeyInput.value.trim()) {
             alert('请输入授权码');
             return;
@@ -178,6 +228,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log('保存授权码响应状态:', response.status);
             
+            if (response.status === 401) {
+                isAuthenticated = false;
+                showLoginForm();
+                return;
+            }
+            
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.message || 'Unknown error'}`);
@@ -196,6 +252,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function deleteLicense(event) {
         if (!event.target.classList.contains('delete-btn')) return;
+        
+        if (!isAuthenticated) {
+            alert('请先登录');
+            showLoginForm();
+            return;
+        }
 
         const licenseKey = event.target.dataset.key;
         if (!confirm(`确定要删除授权码 "${licenseKey}" 吗？此操作不可撤销。`)) return;
@@ -208,6 +270,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ licenseKey: cleanLicenseKey })
             });
+            
+            if (response.status === 401) {
+                isAuthenticated = false;
+                showLoginForm();
+                return;
+            }
             
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -235,17 +303,38 @@ document.addEventListener('DOMContentLoaded', () => {
         expiryDateInput.value = oneYearLater.toISOString().split('T')[0];
     }
 
-    function promptForPassword() {
-        password = prompt('请输入管理员密码 (默认: admin):', '');
-        if (password) {
-            fetchLicenses();
-        } else {
-            alert('未输入密码，无法加载数据。');
+    async function login(password) {
+        try {
+            const response = await fetch(`${apiBaseUrl}/licenses`, {
+                method: 'GET',
+                headers: { 'Authorization': `Basic ${btoa(`:${password}`)}` }
+            });
+            
+            if (response.status === 401) {
+                document.getElementById('loginMessage').textContent = '密码错误，请重试';
+                return false;
+            }
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Login error:', error);
+            document.getElementById('loginMessage').textContent = '登录时发生错误，请重试';
+            return false;
         }
     }
     
-    // 添加JD-FIRST-KEY授权码
+    // 添加默认JD-FIRST-KEY授权码
     async function addDefaultLicense() {
+        if (!isAuthenticated) {
+            alert('请先登录');
+            showLoginForm();
+            return;
+        }
+        
         try {
             const today = new Date();
             const oneYearLater = new Date(today);
@@ -265,15 +354,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(licenseData)
             });
             
+            if (response.status === 401) {
+                isAuthenticated = false;
+                showLoginForm();
+                return;
+            }
+            
             if (!response.ok) {
                 console.error('添加默认授权码失败:', response.status);
+                alert('添加默认授权码失败');
                 return;
             }
             
             console.log('默认授权码添加成功');
+            alert('默认授权码添加成功');
             fetchLicenses();
         } catch (error) {
             console.error('添加默认授权码出错:', error);
+            alert('添加默认授权码出错: ' + error.message);
         }
     }
     
@@ -282,8 +380,43 @@ document.addEventListener('DOMContentLoaded', () => {
     licensesTableBody.addEventListener('click', deleteLicense);
     generateKeyBtn.addEventListener('click', generateRandomKey);
     
+    // 登录处理
+    function handleLogin() {
+        const passwordInput = document.getElementById('adminPassword');
+        const enteredPassword = passwordInput.value.trim();
+        
+        if (!enteredPassword) {
+            document.getElementById('loginMessage').textContent = '请输入密码';
+            return;
+        }
+        
+        login(enteredPassword).then(success => {
+            if (success) {
+                password = enteredPassword;
+                isAuthenticated = true;
+                showMainContent();
+                fetchLicenses();
+            }
+        });
+    }
+    
+    // 添加登录按钮事件监听
+    function setupLoginForm() {
+        const loginBtn = document.getElementById('loginBtn');
+        const passwordInput = document.getElementById('adminPassword');
+        
+        loginBtn.addEventListener('click', handleLogin);
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleLogin();
+            }
+        });
+    }
+    
     setDefaultDates();
-    promptForPassword();
+    showLoginForm();
+    setupLoginForm();
     
     // 添加一个按钮，用于添加默认授权码
     const addDefaultBtn = document.createElement('button');
@@ -291,5 +424,5 @@ document.addEventListener('DOMContentLoaded', () => {
     addDefaultBtn.style.marginTop = '20px';
     addDefaultBtn.style.backgroundColor = '#9b59b6';
     addDefaultBtn.addEventListener('click', addDefaultLicense);
-    document.querySelector('.container').appendChild(addDefaultBtn);
+    mainContainer.appendChild(addDefaultBtn);
 }); 

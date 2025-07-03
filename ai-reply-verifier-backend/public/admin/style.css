@@ -54,7 +54,8 @@ h2 {
 }
 
 .form-group input[type="text"],
-.form-group input[type="date"] {
+.form-group input[type="date"],
+.form-group input[type="password"] {
     width: 100%;
     padding: 12px;
     border: 1px solid #ddd;
@@ -65,7 +66,8 @@ h2 {
 }
 
 .form-group input[type="text"]:focus,
-.form-group input[type="date"]:focus {
+.form-group input[type="date"]:focus,
+.form-group input[type="password"]:focus {
     border-color: #3498db;
     outline: none;
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
@@ -194,6 +196,33 @@ tr:hover {
 
 #generateKeyBtn:hover {
     background-color: #27ae60;
+}
+
+/* 登录表单样式 */
+.login-container {
+    max-width: 500px;
+    margin: 100px auto;
+    text-align: center;
+}
+
+.login-container h2 {
+    margin-bottom: 25px;
+    color: #3498db;
+}
+
+.login-container .form-group {
+    margin-bottom: 25px;
+}
+
+.login-container button {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.error-message {
+    color: #e74c3c;
+    margin-top: 15px;
+    font-weight: 500;
 }
 
 /* Responsive Design */
