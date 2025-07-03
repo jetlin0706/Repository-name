@@ -29,13 +29,24 @@ export default async function handler(request, response) {
       return response.status(200).json({ valid: true, message: 'License verified successfully.' });
     }
 
-    const licenseDataString = await kv.hget('licenses', licenseKey);
+    const rawLicenseData = await kv.hget('licenses', licenseKey);
 
-    if (!licenseDataString) {
+    if (!rawLicenseData) {
       return response.status(200).json({ valid: false, message: 'Invalid license key.' });
     }
-
-    const licenseData = JSON.parse(licenseDataString);
+    
+    let licenseData;
+    // The KV client might return a pre-parsed object or a JSON string. We handle both.
+    if (typeof rawLicenseData === 'object' && rawLicenseData !== null) {
+      licenseData = rawLicenseData;
+    } else {
+      try {
+        licenseData = JSON.parse(rawLicenseData);
+      } catch (e) {
+        console.error('Failed to parse license data, raw data:', rawLicenseData, e);
+        return response.status(500).json({ valid: false, message: 'An internal server error occurred due to corrupted license data.' });
+      }
+    }
 
     // licenseData is stored as a stringified JSON: { hotelName, expiryDate }
     const { expiryDate } = licenseData; 

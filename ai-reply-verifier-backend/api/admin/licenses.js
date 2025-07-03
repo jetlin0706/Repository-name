@@ -66,10 +66,21 @@ export default async function handler(request, response) {
             }
 
             // If updating, preserve existing activation data
-            const existingDataString = await kv.hget('licenses', licenseKey);
+            const existingDataRaw = await kv.hget('licenses', licenseKey);
             let activations = [];
-            if (existingDataString) {
-                const existingData = JSON.parse(existingDataString);
+            if (existingDataRaw) {
+                let existingData;
+                if (typeof existingDataRaw === 'object' && existingDataRaw !== null) {
+                    existingData = existingDataRaw;
+                } else {
+                    try {
+                        existingData = JSON.parse(existingDataRaw);
+                    } catch (e) {
+                        console.error('Could not parse existing license data for key:', licenseKey, e);
+                        // If data is corrupted, we can't preserve activations. Start fresh.
+                        existingData = {};
+                    }
+                }
                 activations = existingData.activations || [];
             }
             
