@@ -383,13 +383,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initial setup
     licenseForm.addEventListener('submit', saveLicense);
-    licensesTableBody.addEventListener('click', function(event) {
+    licensesTableBody.addEventListener('click', async function(event) {
         if (event.target.classList.contains('copy-btn')) {
             const text = event.target.getAttribute('data-copy');
-            navigator.clipboard.writeText(text).then(() => {
-                event.target.textContent = '已复制';
-                setTimeout(() => { event.target.textContent = '复制'; }, 1200);
-            });
+            await navigator.clipboard.writeText(text);
+            event.target.textContent = '已复制';
+            setTimeout(() => { event.target.textContent = '复制'; }, 1200);
             return;
         }
         if (!event.target.classList.contains('delete-btn')) return;
