@@ -5,7 +5,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // --- 常量定义 ---
     // 将占位符URL替换为实际部署的URL
-    const VERIFIER_URL = 'https://ai-reply-verifier-backend.vercel.app/api/verify';
+    const VERIFIER_URL = 'https://repository-name-v2.vercel.app/api/verify';
     
     // --- DOM元素获取 ---
     const featureEnabledSwitch = document.getElementById('featureEnabled');
