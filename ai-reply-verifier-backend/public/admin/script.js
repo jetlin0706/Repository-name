@@ -5,6 +5,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let allLicenses = {}; // Cache for licenses
     let isAuthenticated = false; // 添加认证状态标志
     let currentUser = null;
+    
+    // 新版多角色登录相关变量
+    let jwtToken = null;
+    let loginContainer = document.getElementById('loginContainer');
+    let loginUsername = document.getElementById('loginUsername');
+    let loginPassword = document.getElementById('loginPassword');
+    let loginBtn = document.getElementById('loginBtn');
+    let loginMessage = document.getElementById('loginMessage');
 
     // DOM Elements
     const licenseForm = document.getElementById('licenseForm');
@@ -565,90 +573,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput && paginationDiv) {
         renderLicensesWithSearchAndPage();
     }
-
-    // 新版多角色登录相关变量
-    let jwtToken = null;
-    const loginUsername = document.getElementById('loginUsername');
-    const loginPassword = document.getElementById('loginPassword');
-    const loginBtn = document.getElementById('loginBtn');
-    const loginMessage = document.getElementById('loginMessage');
-
-    // 显示登录表单
-    function showLoginForm() {
-        mainContainer.querySelectorAll('.card').forEach(card => card.style.display = 'none');
-        loginContainer.style.display = '';
-        loginMessage.textContent = '';
-        loginUsername.value = '';
-        loginPassword.value = '';
-        loginUsername.focus();
-    }
-    // 显示主内容
-    function showMainContent() {
-        loginContainer.style.display = 'none';
-        mainContainer.querySelectorAll('.card').forEach(card => card.style.display = '');
-    }
-    // 获取带token的请求头
-    function getAuthHeaders() {
-        if (!jwtToken) return {};
-        return { 'Authorization': 'Bearer ' + jwtToken, 'Content-Type': 'application/json' };
-    }
-    // 登录事件
-    loginBtn.onclick = async function() {
-        const username = loginUsername.value.trim();
-        const password = loginPassword.value;
-        if (!username || !password) {
-            loginMessage.textContent = '请输入用户名和密码';
-            return;
-        }
-        loginBtn.disabled = true;
-        loginMessage.textContent = '正在登录...';
-        try {
-            const resp = await apiFetch(apiBaseUrl + '/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await resp.json();
-            if (!resp.ok) {
-                loginMessage.textContent = data.error || '登录失败';
-                loginBtn.disabled = false;
-                return;
-            }
-            jwtToken = data.token;
-            currentUser = data.user;
-            localStorage.setItem('jwtToken', jwtToken);
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            showMainContent();
-            fetchLicenses();
-            updateAccountCardVisibility();
-            loginAndInit(data.token, data.user);
-        } catch (e) {
-            loginMessage.textContent = '网络错误';
-        } finally {
-            loginBtn.disabled = false;
-        }
-    };
-    // 自动登录
-    (function autoLogin() {
-        jwtToken = localStorage.getItem('jwtToken');
-        try { currentUser = JSON.parse(localStorage.getItem('currentUser')); } catch { currentUser = null; }
-        if (jwtToken && currentUser) {
-            showMainContent();
-            fetchLicenses();
-            updateAccountCardVisibility();
-            loginAndInit(jwtToken, currentUser);
-        } else {
-            showLoginForm();
-        }
-    })();
-    // 退出登录
-    window.logout = function() {
-        jwtToken = null;
-        currentUser = null;
-        localStorage.removeItem('jwtToken');
-        localStorage.removeItem('currentUser');
-        showLoginForm();
-    };
 
     // 账号管理相关
     const accountCard = document.getElementById('accountCard');
