@@ -602,30 +602,35 @@ document.addEventListener('DOMContentLoaded', () => {
         showMainContent();
         await fetchDashboard();
         await fetchLicenses();
+        
+        // 显示用户信息
+        const userInfo = document.getElementById('userInfo');
+        const welcomeText = document.getElementById('welcomeText');
+        if (userInfo && welcomeText) {
+            userInfo.style.display = 'flex';
+            welcomeText.textContent = `欢迎，${user.name} (${user.role === 'admin' ? '管理员' : '合作伙伴'})`;
+        }
+        
+        // 添加登出按钮事件
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.onclick = () => {
+                localStorage.removeItem('token');
+                location.reload();
+            };
+        }
+        
+        // 仅管理员可见账号管理
         if (currentUser && currentUser.role === 'admin') {
             updateAccountCardVisibility();
-        }
-        renderSelfResetPwdBtn();
-        // 管理员自动显示日志
-        if (currentUser && currentUser.role === 'admin') {
             showLogsCard(true);
         } else {
-            showLogsCard(false);
-            // 代理商可在仪表盘下方显示"查看操作日志"按钮
-            let btn = document.getElementById('showLogsBtn');
-            if (!btn) {
-                btn = document.createElement('button');
-                btn.id = 'showLogsBtn';
-                btn.textContent = '查看操作日志';
-                btn.style.margin = '16px auto 0 auto';
-                btn.style.display = 'block';
-                btn.onclick = () => {
-                    showLogsCard(logsCard.style.display === 'none');
-                    btn.textContent = logsCard.style.display === 'none' ? '查看操作日志' : '隐藏操作日志';
-                };
-                logsCard.parentNode.insertBefore(btn, logsCard);
-            }
+            // 合作伙伴不显示账号管理和日志
+            if (accountCard) accountCard.style.display = 'none';
+            if (logsCard) logsCard.style.display = 'none';
         }
+        
+        renderSelfResetPwdBtn();
     }
     
     // 初始化表单和按钮
@@ -634,13 +639,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // 移除可能存在的旧事件监听器
         if (licenseForm) {
             licenseForm.removeEventListener('submit', saveLicense);
-            licenseForm.addEventListener('submit', saveLicense);
+    licenseForm.addEventListener('submit', saveLicense);
             console.log('表单提交事件已绑定');
         }
         
         if (generateKeyBtn) {
             generateKeyBtn.removeEventListener('click', generateRandomKey);
-            generateKeyBtn.addEventListener('click', generateRandomKey);
+    generateKeyBtn.addEventListener('click', generateRandomKey);
             console.log('随机生成按钮事件已绑定');
         }
         
@@ -914,7 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (!name) {
-            alert('请输入代理商名称');
+            alert('请输入合作伙伴名称');
             newAccountName.focus();
             return;
         }
@@ -961,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const submitBtn = addAccountForm.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = '添加代理商';
+                submitBtn.textContent = '添加合作伙伴';
             }
         }
     };

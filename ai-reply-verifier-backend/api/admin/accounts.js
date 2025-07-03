@@ -135,7 +135,7 @@ export default async function handler(req, res) {
         await redis.set(`account:${username}`, JSON.stringify(acc));
         
         // 记录日志
-        await writeLog(user, 'add_account', `添加账号:${username}(${name})`);
+        await writeLog(user, 'add_account', `添加合作伙伴:${username}(${name})`);
         console.log(`账号 ${username} 创建成功`);
         
         return res.status(201).json({ message: '创建成功' });
