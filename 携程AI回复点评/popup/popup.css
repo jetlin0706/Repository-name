@@ -226,3 +226,38 @@ footer {
     background: #94d3a2;
     cursor: not-allowed;
 } 
+
+.tone-btn-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.tone-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, #f7fafc, #e3e6f3);
+    border: 1px solid #d1d5da;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    font-weight: 500;
+    outline: none;
+}
+.tone-btn.selected, .tone-btn:active {
+    background: linear-gradient(135deg, #4776E6, #8E54E9);
+    color: #fff;
+    border-color: #4776E6;
+    box-shadow: 0 2px 8px rgba(71, 118, 230, 0.15);
+}
+.tone-btn:hover {
+    background: #f0f4ff;
+    color: #4776E6;
+}
+.tone-icon {
+    font-size: 18px;
+    margin-right: 2px;
+} 

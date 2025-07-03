@@ -39,6 +39,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 激活授权码按钮
     activateButton.addEventListener('click', handleActivation);
     
+    // 语气按钮选中逻辑
+    const toneBtns = document.querySelectorAll('.tone-btn');
+    toneBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            toneBtns.forEach(b => b.classList.remove('selected'));
+            this.classList.add('selected');
+            // 存储选中的语气到本地
+            chrome.storage.local.set({ selectedTone: this.dataset.tone });
+        });
+    });
+    // 初始化时恢复选中态
+    chrome.storage.local.get(['selectedTone'], data => {
+        if (data.selectedTone) {
+            const btn = document.querySelector(`.tone-btn[data-tone="${data.selectedTone}"]`);
+            if (btn) btn.classList.add('selected');
+        }
+    });
+    
     // --- 函数定义 ---
     
     async function initializeApp() {

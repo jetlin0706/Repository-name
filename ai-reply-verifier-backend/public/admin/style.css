@@ -29,17 +29,18 @@ h2 {
 }
 
 .card {
-    background-color: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
-    padding: 25px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    background-color: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(52, 152, 219, 0.10);
+    margin-bottom: 36px;
+    padding: 32px 28px 28px 28px;
+    border: 1.5px solid #e3eaf5;
+    transition: transform 0.18s, box-shadow 0.18s;
 }
 
 .card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 12px 32px rgba(52, 152, 219, 0.16);
 }
 
 .form-group {
@@ -73,53 +74,73 @@ h2 {
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
 }
 
-button {
-    background-color: #3498db;
-    color: white;
-    padding: 12px 20px;
+button, .copy-btn, .delete-btn, .reset-pwd-btn {
+    background: linear-gradient(90deg, #3498db 60%, #6dd5fa 100%);
+    color: #fff;
     border: none;
     border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
+    padding: 10px 18px;
+    font-size: 15px;
     font-weight: 600;
-    transition: background-color 0.3s, transform 0.2s;
+    cursor: pointer;
+    margin: 0 4px 4px 0;
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.08);
+    transition: background 0.2s, transform 0.18s;
 }
 
-button:hover {
-    background-color: #2980b9;
-    transform: translateY(-2px);
+button:hover, .copy-btn:hover, .delete-btn:hover, .reset-pwd-btn:hover {
+    background: linear-gradient(90deg, #2980b9 60%, #3498db 100%);
+    transform: translateY(-2px) scale(1.04);
 }
 
-button:active {
-    transform: translateY(0);
+.delete-btn {
+    background: linear-gradient(90deg, #e74c3c 60%, #ff7675 100%);
+}
+
+.delete-btn:hover {
+    background: linear-gradient(90deg, #c0392b 60%, #e74c3c 100%);
+}
+
+.reset-pwd-btn {
+    background: linear-gradient(90deg, #f39c12 60%, #f6e58d 100%);
+    color: #fff;
+}
+
+.reset-pwd-btn:hover {
+    background: linear-gradient(90deg, #e67e22 60%, #f39c12 100%);
 }
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     margin-top: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(52, 152, 219, 0.08);
+    border-radius: 10px;
     overflow: hidden;
+    background: #fafdff;
 }
 
 th, td {
-    padding: 15px;
+    padding: 16px 12px;
     text-align: left;
+    font-size: 15px;
 }
 
 th {
-    background-color: #3498db;
-    color: white;
-    font-weight: 600;
+    background: linear-gradient(90deg, #3498db 80%, #6dd5fa 100%);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #b3c6e6;
 }
 
 tr:nth-child(even) {
-    background-color: #f2f2f2;
+    background-color: #f3f8fd;
 }
 
 tr:hover {
-    background-color: #e9f5fe;
+    background-color: #e3f1fb;
 }
 
 .status-active {
@@ -130,21 +151,6 @@ tr:hover {
 .status-expired {
     color: #e74c3c;
     font-weight: bold;
-}
-
-.delete-btn {
-    background-color: #e74c3c;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    padding: 7px 14px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.delete-btn:hover {
-    background-color: #c0392b;
 }
 
 /* Dashboard Styles */
@@ -276,4 +282,43 @@ tr:hover {
         width: 100%;
         margin-top: 10px;
     }
+}
+
+/* 弹窗美化 */
+#resetPwdInput, .modal input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    border: 1.5px solid #b3c6e6;
+    border-radius: 7px;
+    font-size: 16px;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+#resetPwdInput:focus, .modal input[type="password"]:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 2px #b3c6e6;
+}
+
+/* 日志表格优化 */
+#logsTable th, #logsTable td {
+    font-size: 14px;
+    padding: 10px 8px;
+}
+#logsTable tr:hover {
+    background: #f0f7ff;
+}
+
+/* 其它细节优化 */
+input, select, textarea {
+    font-family: inherit;
+}
+::-webkit-scrollbar {
+    width: 8px;
+    background: #f3f8fd;
+}
+::-webkit-scrollbar-thumb {
+    background: #b3c6e6;
+    border-radius: 6px;
 } 

@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let password = null;
     let allLicenses = {}; // Cache for licenses
     let isAuthenticated = false; // 添加认证状态标志
+    let currentUser = null;
 
     // DOM Elements
     const licenseForm = document.getElementById('licenseForm');
@@ -18,6 +19,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalLicensesEl = document.getElementById('totalLicenses');
     const activeLicensesEl = document.getElementById('activeLicenses');
     const todayActivationsEl = document.getElementById('todayActivations');
+    let agentStatsContainer = document.getElementById('agentStatsContainer');
+    if (!agentStatsContainer) {
+        agentStatsContainer = document.createElement('div');
+        agentStatsContainer.id = 'agentStatsContainer';
+        agentStatsContainer.style.marginTop = '16px';
+        document.getElementById('dashboard').appendChild(agentStatsContainer);
+    }
 
     // 添加登录表单
     const mainContainer = document.querySelector('.container');
@@ -63,28 +71,30 @@ document.addEventListener('DOMContentLoaded', () => {
         return { 'Authorization': `Basic ${encoded}` };
     }
 
+    // 封装fetch，自动处理401
+    async function apiFetch(url, options = {}) {
+        const resp = await fetch(url, options);
+        if (resp.status === 401) {
+            showLoginForm();
+            document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
+            throw new Error('401 Unauthorized');
+        }
+        return resp;
+    }
+
     async function fetchLicenses() {
         try {
             console.log('正在获取授权码列表...');
-            const response = await fetch(`${apiBaseUrl}/licenses`, {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                 method: 'GET',
                 headers: getAuthHeaders()
             });
 
             console.log('获取授权码响应状态:', response.status);
-            
-            if (response.status === 401) {
-                isAuthenticated = false;
-                showLoginForm();
-                document.getElementById('loginMessage').textContent = '密码错误或未授权，请重新登录';
-                return;
-            }
-            
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             isAuthenticated = true;
             showMainContent();
-            
+
             allLicenses = await response.json();
             console.log('获取到的授权码数据:', allLicenses);
             renderLicensesWithSearchAndPage();
@@ -165,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             totalLicensesEl.textContent = 0;
             activeLicensesEl.textContent = 0;
             todayActivationsEl.textContent = 0;
+            agentStatsContainer.innerHTML = '';
             return;
         }
 
@@ -196,6 +207,26 @@ document.addEventListener('DOMContentLoaded', () => {
         totalLicensesEl.textContent = total;
         activeLicensesEl.textContent = active;
         todayActivationsEl.textContent = todayActivations;
+        updateDashboardStats({ total, active, todayActivations });
+    }
+
+    function updateDashboardStats(data) {
+        totalLicensesEl.textContent = data.total || 0;
+        activeLicensesEl.textContent = data.active || 0;
+        todayActivationsEl.textContent = data.todayActivations || 0;
+        // 管理员显示代理商分布
+        if (data.agentStats && Array.isArray(data.agentStats) && data.agentStats.length > 0) {
+            let html = '<h4 style="margin:8px 0 4px 0;">各代理商授权分布</h4>';
+            html += '<table style="width:100%;border-collapse:collapse;text-align:center;">';
+            html += '<tr><th>代理商</th><th>激活码数</th><th>有效</th><th>今日激活</th></tr>';
+            data.agentStats.forEach(a => {
+                html += `<tr><td>${a.name} (${a.username})</td><td>${a.licenseCount}</td><td>${a.activeCount}</td><td>${a.todayActivations}</td></tr>`;
+            });
+            html += '</table>';
+            agentStatsContainer.innerHTML = html;
+        } else {
+            agentStatsContainer.innerHTML = '';
+        }
     }
 
     async function saveLicense(event) {
@@ -226,19 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             console.log('保存授权码数据:', licenseData);
-            const response = await fetch(`${apiBaseUrl}/licenses`, {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify(licenseData)
             });
 
             console.log('保存授权码响应状态:', response.status);
-            
-            if (response.status === 401) {
-                isAuthenticated = false;
-                showLoginForm();
-                return;
-            }
             
             if (!response.ok) {
                 const errorData = await response.json();
@@ -271,17 +296,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanLicenseKey = licenseKey.replace(/\*/g, '');
 
         try {
-            const response = await fetch(`${apiBaseUrl}/licenses`, {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                 method: 'DELETE',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ licenseKey: cleanLicenseKey })
             });
-            
-            if (response.status === 401) {
-                isAuthenticated = false;
-                showLoginForm();
-                return;
-            }
             
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -311,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function login(password) {
         try {
-            const response = await fetch(`${apiBaseUrl}/licenses`, {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                 method: 'GET',
                 headers: { 'Authorization': `Basic ${btoa(`:${password}`)}` }
             });
@@ -354,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
             console.log('添加默认授权码:', licenseData);
-            const response = await fetch(`${apiBaseUrl}/licenses`, {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify(licenseData)
@@ -405,17 +424,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanLicenseKey = licenseKey.replace(/\*/g, '');
 
         try {
-            const response = await fetch(`${apiBaseUrl}/licenses`, {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                 method: 'DELETE',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ licenseKey: cleanLicenseKey })
             });
-            
-            if (response.status === 401) {
-                isAuthenticated = false;
-                showLoginForm();
-                return;
-            }
             
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -551,5 +564,303 @@ document.addEventListener('DOMContentLoaded', () => {
     // 新增：初始渲染
     if (searchInput && paginationDiv) {
         renderLicensesWithSearchAndPage();
+    }
+
+    // 新版多角色登录相关变量
+    let jwtToken = null;
+    const loginUsername = document.getElementById('loginUsername');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginMessage = document.getElementById('loginMessage');
+
+    // 显示登录表单
+    function showLoginForm() {
+        mainContainer.querySelectorAll('.card').forEach(card => card.style.display = 'none');
+        loginContainer.style.display = '';
+        loginMessage.textContent = '';
+        loginUsername.value = '';
+        loginPassword.value = '';
+        loginUsername.focus();
+    }
+    // 显示主内容
+    function showMainContent() {
+        loginContainer.style.display = 'none';
+        mainContainer.querySelectorAll('.card').forEach(card => card.style.display = '');
+    }
+    // 获取带token的请求头
+    function getAuthHeaders() {
+        if (!jwtToken) return {};
+        return { 'Authorization': 'Bearer ' + jwtToken, 'Content-Type': 'application/json' };
+    }
+    // 登录事件
+    loginBtn.onclick = async function() {
+        const username = loginUsername.value.trim();
+        const password = loginPassword.value;
+        if (!username || !password) {
+            loginMessage.textContent = '请输入用户名和密码';
+            return;
+        }
+        loginBtn.disabled = true;
+        loginMessage.textContent = '正在登录...';
+        try {
+            const resp = await apiFetch(apiBaseUrl + '/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                loginMessage.textContent = data.error || '登录失败';
+                loginBtn.disabled = false;
+                return;
+            }
+            jwtToken = data.token;
+            currentUser = data.user;
+            localStorage.setItem('jwtToken', jwtToken);
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            showMainContent();
+            fetchLicenses();
+            updateAccountCardVisibility();
+            loginAndInit(data.token, data.user);
+        } catch (e) {
+            loginMessage.textContent = '网络错误';
+        } finally {
+            loginBtn.disabled = false;
+        }
+    };
+    // 自动登录
+    (function autoLogin() {
+        jwtToken = localStorage.getItem('jwtToken');
+        try { currentUser = JSON.parse(localStorage.getItem('currentUser')); } catch { currentUser = null; }
+        if (jwtToken && currentUser) {
+            showMainContent();
+            fetchLicenses();
+            updateAccountCardVisibility();
+            loginAndInit(jwtToken, currentUser);
+        } else {
+            showLoginForm();
+        }
+    })();
+    // 退出登录
+    window.logout = function() {
+        jwtToken = null;
+        currentUser = null;
+        localStorage.removeItem('jwtToken');
+        localStorage.removeItem('currentUser');
+        showLoginForm();
+    };
+
+    // 账号管理相关
+    const accountCard = document.getElementById('accountCard');
+    const addAccountForm = document.getElementById('addAccountForm');
+    const newAccountUsername = document.getElementById('newAccountUsername');
+    const newAccountName = document.getElementById('newAccountName');
+    const newAccountPassword = document.getElementById('newAccountPassword');
+    const accountsTable = document.getElementById('accountsTable').querySelector('tbody');
+
+    // 重置密码弹窗
+    function showResetPwdDialog(username, callback) {
+        const dialog = document.createElement('div');
+        dialog.style.position = 'fixed';
+        dialog.style.left = '0';
+        dialog.style.top = '0';
+        dialog.style.width = '100vw';
+        dialog.style.height = '100vh';
+        dialog.style.background = 'rgba(0,0,0,0.3)';
+        dialog.style.display = 'flex';
+        dialog.style.alignItems = 'center';
+        dialog.style.justifyContent = 'center';
+        dialog.innerHTML = `<div style="background:#fff;padding:24px 32px;border-radius:8px;min-width:260px;box-shadow:0 2px 12px #0002;">
+            <h3 style="margin-bottom:12px;">重置密码 - ${username}</h3>
+            <input type="password" id="resetPwdInput" placeholder="新密码" style="width:100%;padding:8px;margin-bottom:12px;">
+            <div style="text-align:right;">
+                <button id="resetPwdCancel">取消</button>
+                <button id="resetPwdOk" style="margin-left:8px;">确定</button>
+            </div>
+            <p id="resetPwdMsg" style="color:#d33;margin:8px 0 0 0;"></p>
+        </div>`;
+        document.body.appendChild(dialog);
+        dialog.querySelector('#resetPwdCancel').onclick = () => document.body.removeChild(dialog);
+        dialog.querySelector('#resetPwdOk').onclick = async () => {
+            const pwd = dialog.querySelector('#resetPwdInput').value.trim();
+            if (!pwd) {
+                dialog.querySelector('#resetPwdMsg').textContent = '请输入新密码';
+                return;
+            }
+            dialog.querySelector('#resetPwdOk').disabled = true;
+            try {
+                await callback(pwd);
+                alert('密码重置成功！');
+                document.body.removeChild(dialog);
+            } catch (e) {
+                dialog.querySelector('#resetPwdMsg').textContent = e.message || '重置失败';
+                dialog.querySelector('#resetPwdOk').disabled = false;
+            }
+        };
+    }
+
+    // 仅管理员可见账号管理卡片
+    function updateAccountCardVisibility() {
+        if (currentUser && currentUser.role === 'admin') {
+            accountCard.style.display = '';
+            fetchAccounts();
+        } else {
+            accountCard.style.display = 'none';
+        }
+    }
+    // 渲染账号表
+    async function fetchAccounts() {
+        const resp = await apiFetch(apiBaseUrl + '/accounts', { headers: getAuthHeaders() });
+        const data = await resp.json();
+        accountsTable.innerHTML = '';
+        (data.accounts || []).forEach(acc => {
+            const tr = document.createElement('tr');
+            let ops = '';
+            if (acc.username !== 'admin') {
+                ops += `<button class='del-account-btn' data-u='${acc.username}'>删除</button>`;
+                ops += `<button class='reset-pwd-btn' data-u='${acc.username}'>重置密码</button>`;
+            }
+            tr.innerHTML = `<td>${acc.username}</td><td>${acc.name}</td><td>${acc.role}</td><td>${acc.createdAt ? acc.createdAt.split('T')[0] : ''}</td><td>${ops}</td>`;
+            accountsTable.appendChild(tr);
+        });
+    }
+    // 添加账号
+    addAccountForm.onsubmit = async function(e) {
+        e.preventDefault();
+        const username = newAccountUsername.value.trim();
+        const name = newAccountName.value.trim();
+        const password = newAccountPassword.value;
+        if (!username || !name || !password) return alert('请填写完整');
+        const resp = await apiFetch(apiBaseUrl + '/accounts', {
+            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ username, name, password })
+        });
+        const data = await resp.json();
+        if (!resp.ok) return alert(data.error || '添加失败');
+        addAccountForm.reset();
+        fetchAccounts();
+    };
+    // 账号表按钮事件
+    accountsTable.onclick = async function(e) {
+        if (e.target.classList.contains('del-account-btn')) {
+            const username = e.target.dataset.u;
+            if (!confirm('确定要删除账号 ' + username + ' 吗？')) return;
+            const resp = await apiFetch(apiBaseUrl + '/accounts', {
+                method: 'DELETE', headers: getAuthHeaders(), body: JSON.stringify({ username })
+            });
+            const data = await resp.json();
+            if (!resp.ok) return alert(data.error || '删除失败');
+            fetchAccounts();
+        } else if (e.target.classList.contains('reset-pwd-btn')) {
+            const username = e.target.dataset.u;
+            showResetPwdDialog(username, async (newPwd) => {
+                const resp = await apiFetch(apiBaseUrl + '/reset-password', {
+                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ username, newPassword: newPwd })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || '重置失败');
+            });
+        }
+    };
+
+    // 非admin右上角重置密码按钮
+    function renderSelfResetPwdBtn() {
+        if (!currentUser || currentUser.role === 'admin') return;
+        let btn = document.getElementById('selfResetPwdBtn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'selfResetPwdBtn';
+            btn.textContent = '重置密码';
+            btn.style.position = 'absolute';
+            btn.style.top = '18px';
+            btn.style.right = '32px';
+            btn.style.zIndex = '10';
+            document.body.appendChild(btn);
+        }
+        btn.onclick = () => {
+            showResetPwdDialog(currentUser.username, async (newPwd) => {
+                const resp = await apiFetch(apiBaseUrl + '/reset-password', {
+                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ username: currentUser.username, newPassword: newPwd })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || '重置失败');
+            });
+        };
+    }
+
+    // 登录成功后，拉取dashboard数据
+    async function loginAndInit(token, user) {
+        password = token; // 兼容旧逻辑
+        currentUser = user;
+        showMainContent();
+        await fetchDashboard();
+        await fetchLicenses();
+        if (currentUser && currentUser.role === 'admin') {
+            updateAccountCardVisibility();
+        }
+        renderSelfResetPwdBtn();
+        // 管理员自动显示日志
+        if (currentUser && currentUser.role === 'admin') {
+            showLogsCard(true);
+        } else {
+            showLogsCard(false);
+            // 代理商可在仪表盘下方显示"查看操作日志"按钮
+            let btn = document.getElementById('showLogsBtn');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.id = 'showLogsBtn';
+                btn.textContent = '查看操作日志';
+                btn.style.margin = '16px auto 0 auto';
+                btn.style.display = 'block';
+                btn.onclick = () => {
+                    showLogsCard(logsCard.style.display === 'none');
+                    btn.textContent = logsCard.style.display === 'none' ? '查看操作日志' : '隐藏操作日志';
+                };
+                logsCard.parentNode.insertBefore(btn, logsCard);
+            }
+        }
+    }
+
+    // 日志相关
+    const logsCard = document.getElementById('logsCard');
+    const logsTable = document.getElementById('logsTable').querySelector('tbody');
+    const logsPagination = document.getElementById('logsPagination');
+    let logsPage = 1;
+    const LOGS_PAGE_SIZE = 20;
+
+    async function fetchLogs(page = 1) {
+        const resp = await apiFetch(`/api/admin/logs?page=${page}&pageSize=${LOGS_PAGE_SIZE}`, { headers: getAuthHeaders() });
+        const data = await resp.json();
+        renderLogsTable(data.logs || []);
+        // 简单分页（不查总数，前后翻页）
+        logsPagination.innerHTML = '';
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '«';
+        prevBtn.disabled = page === 1;
+        prevBtn.onclick = () => { if (logsPage > 1) { logsPage--; fetchLogs(logsPage); } };
+        logsPagination.appendChild(prevBtn);
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = '»';
+        nextBtn.onclick = () => { logsPage++; fetchLogs(logsPage); };
+        logsPagination.appendChild(nextBtn);
+    }
+    function renderLogsTable(logs) {
+        logsTable.innerHTML = '';
+        if (!logs.length) {
+            logsTable.innerHTML = '<tr><td colspan="4" style="text-align:center;">暂无日志</td></tr>';
+            return;
+        }
+        logs.forEach(log => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${log.time.replace('T',' ').slice(0,19)}</td><td>${log.username} (${log.role})</td><td>${log.type}</td><td>${log.detail}</td>`;
+            logsTable.appendChild(tr);
+        });
+    }
+    // 管理员登录后自动显示日志卡片，代理商可手动切换
+    function showLogsCard(show) {
+        logsCard.style.display = show ? '' : 'none';
+        if (show) {
+            logsPage = 1;
+            fetchLogs(logsPage);
+        }
     }
 }); 

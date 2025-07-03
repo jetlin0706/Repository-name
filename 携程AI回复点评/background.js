@@ -295,14 +295,14 @@ async function handleGetAiReply(request) {
 
         if (activationStatus.isActivated !== true) {
             addLog("拒绝AI回复请求：未授权");
-            return { success: false, message: "功能未激活，请输入有效授权码后使用。" };
+            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
         }
 
         // === 新增：每次AI调用前实时校验激活码 ===
         const licenseKey = activationStatus.licenseKey;
         if (!licenseKey) {
             addLog("本地未找到授权码，拒绝AI回复请求");
-            return { success: false, message: "未检测到授权码，请重新激活。" };
+            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
         }
         // 实时向后端校验激活码
         let verifyResult;
@@ -315,13 +315,12 @@ async function handleGetAiReply(request) {
             verifyResult = await verifyResp.json();
         } catch (e) {
             addLog(`激活码校验请求失败: ${e.message}`);
-            return { success: false, message: "授权码校验失败，请检查网络或联系管理员。" };
+            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
         }
         if (!verifyResult || !verifyResult.valid) {
             addLog(`激活码实时校验失败: ${verifyResult?.message || '无效授权码'}`);
-            // 失效时自动清除本地激活状态
             await chrome.storage.local.set({ isActivated: false });
-            return { success: false, message: verifyResult?.message || "授权码无效或已被移除，请重新激活。" };
+            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
         }
         // === 实时校验通过，继续AI回复 ===
 

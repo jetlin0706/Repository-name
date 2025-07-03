@@ -1,0 +1,5 @@
+{
+  "redirects": [
+    { "source": "/", "destination": "/ai-reply-verifier-backend/public/admin/", "permanent": true }
+  ]
+} 
