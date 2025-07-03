@@ -678,7 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const response = await apiFetch(`${apiBaseUrl}/licenses`, {
                             method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                             body: JSON.stringify({ licenseKey: cleanLicenseKey })
                         });
                         
@@ -899,17 +899,71 @@ document.addEventListener('DOMContentLoaded', () => {
     // 添加账号
     addAccountForm.onsubmit = async function(e) {
         e.preventDefault();
+        console.log('提交添加账号表单');
+        
+        // 获取表单数据
         const username = newAccountUsername.value.trim();
         const name = newAccountName.value.trim();
         const password = newAccountPassword.value;
-        if (!username || !name || !password) return alert('请填写完整');
-        const resp = await apiFetch(apiBaseUrl + '/accounts', {
-            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ username, name, password })
-        });
-        const data = await resp.json();
-        if (!resp.ok) return alert(data.error || '添加失败');
-        addAccountForm.reset();
-        fetchAccounts();
+        
+        // 表单验证
+        if (!username) {
+            alert('请输入用户名');
+            newAccountUsername.focus();
+            return;
+        }
+        
+        if (!name) {
+            alert('请输入代理商名称');
+            newAccountName.focus();
+            return;
+        }
+        
+        if (!password) {
+            alert('请输入密码');
+            newAccountPassword.focus();
+            return;
+        }
+        
+        try {
+            // 显示加载状态
+            const submitBtn = addAccountForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '添加中...';
+            
+            console.log('发送添加账号请求:', { username, name });
+            const resp = await apiFetch(apiBaseUrl + '/accounts', {
+                method: 'POST', 
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, name, password })
+            });
+            
+            const data = await resp.json();
+            
+            if (!resp.ok) {
+                console.error('添加账号失败:', data);
+                alert(data.error || '添加失败');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+                return;
+            }
+            
+            console.log('添加账号成功:', data);
+            alert('添加成功');
+            addAccountForm.reset();
+            fetchAccounts();
+        } catch (error) {
+            console.error('添加账号出错:', error);
+            alert('添加账号时发生错误，请稍后重试');
+        } finally {
+            // 恢复按钮状态
+            const submitBtn = addAccountForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '添加代理商';
+            }
+        }
     };
     // 账号表按钮事件
     accountsTable.onclick = async function(e) {
