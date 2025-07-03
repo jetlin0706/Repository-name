@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin'; // 添加默认密码用于测试
 
 // Middleware for authentication
 function auth(request) {
@@ -32,6 +32,17 @@ function auth(request) {
 
 
 export default async function handler(request, response) {
+    // 设置CORS头
+    response.setHeader('Access-Control-Allow-Credentials', true);
+    response.setHeader('Access-Control-Allow-Origin', '*');
+    response.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    response.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+
+    // 处理OPTIONS请求
+    if (request.method === 'OPTIONS') {
+        return response.status(200).end();
+    }
+
     if (!auth(request)) {
         // For security reasons, don't give specific feedback in the response.
         // The console.error in auth() is for server-side debugging.

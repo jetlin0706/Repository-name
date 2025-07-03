@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 使用相对路径，确保API路径正确
     const apiBaseUrl = '/api/admin';
     let password = null;
     let allLicenses = {}; // Cache for licenses
@@ -10,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const licenseKeyInput = document.getElementById('licenseKey');
     const startDateInput = document.getElementById('startDate');
     const expiryDateInput = document.getElementById('expiryDate');
+    const hotelNameInput = document.getElementById('hotelName');
 
     // Dashboard Elements
     const totalLicensesEl = document.getElementById('totalLicenses');
@@ -24,18 +26,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchLicenses() {
         try {
+            console.log('正在获取授权码列表...');
             const response = await fetch(`${apiBaseUrl}/licenses`, {
                 method: 'GET',
                 headers: getAuthHeaders()
             });
 
+            console.log('获取授权码响应状态:', response.status);
+            
             if (response.status === 401) {
                 alert('获取授权码列表失败，请检查密码或网络连接。');
+                promptForPassword(); // 重新提示输入密码
                 return;
             }
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             allLicenses = await response.json();
+            console.log('获取到的授权码数据:', allLicenses);
             renderLicenses(allLicenses);
             updateDashboard(allLicenses);
 
@@ -52,6 +59,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ensure licenses is an object before iterating
         if (typeof licenses !== 'object' || licenses === null) {
             console.error("Received non-object data for licenses:", licenses);
+            licensesTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;">暂无授权码数据</td></tr>';
+            return;
+        }
+
+        // 如果没有授权码，显示提示信息
+        if (Object.keys(licenses).length === 0) {
+            licensesTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;">暂无授权码数据</td></tr>';
             return;
         }
 
@@ -136,22 +150,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveLicense(event) {
         event.preventDefault();
-        const formData = new FormData(licenseForm);
+        
+        if (!licenseKeyInput.value.trim()) {
+            alert('请输入授权码');
+            return;
+        }
+        
+        if (!hotelNameInput.value.trim()) {
+            alert('请输入酒店名称');
+            return;
+        }
+        
         const licenseData = {
-            licenseKey: formData.get('licenseKey'),
-            hotelName: formData.get('hotelName'),
-            startDate: formData.get('startDate'),
-            expiryDate: formData.get('expiryDate')
+            licenseKey: licenseKeyInput.value.trim(),
+            hotelName: hotelNameInput.value.trim(),
+            startDate: startDateInput.value,
+            expiryDate: expiryDateInput.value
         };
 
         try {
+            console.log('保存授权码数据:', licenseData);
             const response = await fetch(`${apiBaseUrl}/licenses`, {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify(licenseData)
             });
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            console.log('保存授权码响应状态:', response.status);
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.message || 'Unknown error'}`);
+            }
 
             alert('保存成功！');
             licenseForm.reset();
@@ -160,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Error saving license:', error);
-            alert('保存失败，请查看控制台获取详情。');
+            alert(`保存失败: ${error.message}`);
         }
     }
 
@@ -206,11 +236,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function promptForPassword() {
-        password = prompt('请输入管理员密码:', '');
+        password = prompt('请输入管理员密码 (默认: admin):', '');
         if (password) {
             fetchLicenses();
         } else {
             alert('未输入密码，无法加载数据。');
+        }
+    }
+    
+    // 添加JD-FIRST-KEY授权码
+    async function addDefaultLicense() {
+        try {
+            const today = new Date();
+            const oneYearLater = new Date(today);
+            oneYearLater.setFullYear(today.getFullYear() + 1);
+            
+            const licenseData = {
+                licenseKey: 'JD-FIRST-KEY',
+                hotelName: '默认酒店',
+                startDate: today.toISOString().split('T')[0],
+                expiryDate: oneYearLater.toISOString().split('T')[0]
+            };
+            
+            console.log('添加默认授权码:', licenseData);
+            const response = await fetch(`${apiBaseUrl}/licenses`, {
+                method: 'POST',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(licenseData)
+            });
+            
+            if (!response.ok) {
+                console.error('添加默认授权码失败:', response.status);
+                return;
+            }
+            
+            console.log('默认授权码添加成功');
+            fetchLicenses();
+        } catch (error) {
+            console.error('添加默认授权码出错:', error);
         }
     }
     
@@ -221,4 +284,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     setDefaultDates();
     promptForPassword();
+    
+    // 添加一个按钮，用于添加默认授权码
+    const addDefaultBtn = document.createElement('button');
+    addDefaultBtn.textContent = '添加默认授权码 (JD-FIRST-KEY)';
+    addDefaultBtn.style.marginTop = '20px';
+    addDefaultBtn.style.backgroundColor = '#9b59b6';
+    addDefaultBtn.addEventListener('click', addDefaultLicense);
+    document.querySelector('.container').appendChild(addDefaultBtn);
 }); 
