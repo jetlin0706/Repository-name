@@ -18,28 +18,62 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: '用户名和密码不能为空' });
-  }
-  const userRaw = await redis.get(`account:${username}`);
-  if (!userRaw) {
-    return res.status(401).json({ error: '账号不存在' });
-  }
-  let user;
   try {
-    user = typeof userRaw === 'string' ? JSON.parse(userRaw) : userRaw;
-  } catch {
-    return res.status(500).json({ error: '账号数据异常' });
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // 检查请求体是否存在
+    if (!req.body) {
+      console.error('Login error: Request body is missing');
+      return res.status(400).json({ error: '请求数据无效' });
+    }
+
+    const { username, password } = req.body;
+    console.log(`Login attempt for username: ${username}`);
+
+    if (!username || !password) {
+      console.error(`Login error: Missing credentials - username: ${!!username}, password: ${!!password}`);
+      return res.status(400).json({ error: '用户名和密码不能为空' });
+    }
+
+    const userRaw = await redis.get(`account:${username}`);
+    if (!userRaw) {
+      console.error(`Login error: Account not found for username: ${username}`);
+      return res.status(401).json({ error: '账号不存在' });
+    }
+
+    let user;
+    try {
+      user = typeof userRaw === 'string' ? JSON.parse(userRaw) : userRaw;
+    } catch (error) {
+      console.error(`Login error: Failed to parse user data for ${username}`, error);
+      return res.status(500).json({ error: '账号数据异常' });
+    }
+
+    // 检查passwordHash是否存在
+    if (!user.passwordHash) {
+      console.error(`Login error: Password hash is missing for user: ${username}`);
+      return res.status(500).json({ error: '账号数据异常，请联系管理员' });
+    }
+
+    try {
+      const match = await bcrypt.compare(password, user.passwordHash);
+      if (!match) {
+        console.error(`Login error: Password mismatch for user: ${username}`);
+        return res.status(401).json({ error: '密码错误' });
+      }
+    } catch (error) {
+      console.error(`Login error: bcrypt compare failed for user: ${username}`, error);
+      return res.status(500).json({ error: '登录验证失败，请联系管理员' });
+    }
+
+    // 生成JWT
+    const token = jwt.sign({ username: user.username, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '2d' });
+    console.log(`Login successful for user: ${username}, role: ${user.role}`);
+    res.status(200).json({ token, user: { username: user.username, role: user.role, name: user.name } });
+  } catch (error) {
+    console.error('Unexpected error in login handler:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
-  const match = await bcrypt.compare(password, user.passwordHash);
-  if (!match) {
-    return res.status(401).json({ error: '密码错误' });
-  }
-  // 生成JWT
-  const token = jwt.sign({ username: user.username, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '2d' });
-  res.status(200).json({ token, user: { username: user.username, role: user.role, name: user.name } });
 } 
