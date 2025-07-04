@@ -859,12 +859,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const newAccountName = document.getElementById('newAccountName');
     const newAccountPassword = document.getElementById('newAccountPassword');
     const accountsTable = document.getElementById('accountsTable').querySelector('tbody');
-    const logsCard = document.getElementById('logsCard');
-    const logsTable = document.getElementById('logsTable').querySelector('tbody');
-    const logsPaginationContainer = document.getElementById('logsPagination');
-    const partnerStatsCard = document.getElementById('partnerStatsCard');
-    const statsPeriodSelector = document.getElementById('statsPeriodSelector');
-    const partnerStatsTable = document.getElementById('partnerStatsTable')?.querySelector('tbody');
 
     // 重置密码弹窗
     function showResetPwdDialog(username, callback) {
@@ -912,35 +906,56 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentUser && currentUser.role === 'admin') {
             accountCard.style.display = '';
             fetchAccounts();
+            addAccountForm.reset(); // 在卡片显示时重置表单，防止自动填充
         } else {
             accountCard.style.display = 'none';
         }
     }
     // 渲染账号表
     async function fetchAccounts() {
-        const resp = await apiFetch(apiBaseUrl + '/accounts', { headers: getAuthHeaders() });
-        const data = await resp.json();
-        accountsTable.innerHTML = '';
-        (data.accounts || []).forEach(acc => {
-            const tr = document.createElement('tr');
-            let ops = '';
-            if (acc.username !== 'admin') {
-                ops += `<button class='del-account-btn' data-u='${acc.username}'>删除</button>`;
-                ops += `<button class='reset-pwd-btn' data-u='${acc.username}'>重置密码</button>`;
+        try {
+            const resp = await apiFetch(apiBaseUrl + '/accounts', { headers: getAuthHeaders() });
+            
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({ error: '获取账号列表失败' }));
+                console.error('获取账号列表失败:', resp.status, errorData);
+                alert(`获取账号列表失败: ${errorData.error || resp.statusText}`);
+                return;
             }
-            tr.innerHTML = `<td>${acc.username}</td><td>${acc.name}</td><td>${acc.role}</td><td>${acc.createdAt ? acc.createdAt.split('T')[0] : ''}</td><td>${ops}</td>`;
-            accountsTable.appendChild(tr);
-        });
-        
-        // 每次获取账号列表后，清空添加账号表单
-        clearAddAccountForm();
-    }
-    
-    // 清空添加账号表单
-    function clearAddAccountForm() {
-        newAccountUsername.value = '';
-        newAccountName.value = '';
-        newAccountPassword.value = '';
+
+            const data = await resp.json();
+            const tableBody = accountsTable.querySelector('tbody');
+
+            if (!tableBody) {
+                console.error("在 accountsTable 中未找到 tbody");
+                return;
+            }
+            tableBody.innerHTML = ''; // 正确地只清空tbody
+
+            if (!data.accounts || data.accounts.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 5;
+                td.textContent = '没有找到账号信息。';
+                td.style.textAlign = 'center';
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+            } else {
+                data.accounts.forEach(acc => {
+                    const tr = document.createElement('tr');
+                    let ops = '';
+                    if (acc.username !== 'admin') {
+                        ops += `<button class='del-account-btn' data-u='${acc.username}'>删除</button>`;
+                        ops += `<button class='reset-pwd-btn' data-u='${acc.username}'>重置密码</button>`;
+                    }
+                    tr.innerHTML = `<td>${acc.username}</td><td>${acc.name}</td><td>${acc.role}</td><td>${acc.createdAt ? acc.createdAt.split('T')[0] : '—'}</td><td>${ops}</td>`;
+                    tableBody.appendChild(tr);
+                });
+            }
+        } catch (error) {
+            console.error("fetchAccounts 函数出错:", error);
+            alert("获取账号列表时发生客户端错误。");
+        }
     }
     
     // 添加账号
@@ -998,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             console.log('添加账号成功:', data);
             alert('添加成功');
-            clearAddAccountForm();
+            addAccountForm.reset(); // 使用标准的reset()方法
             fetchAccounts();
         } catch (error) {
             console.error('添加账号出错:', error);
