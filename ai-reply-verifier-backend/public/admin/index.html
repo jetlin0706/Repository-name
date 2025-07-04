@@ -6,10 +6,9 @@
     <title>AI点评回复助手管理系统</title>
     <script>
         // 动态设置base标签
-        const baseUrl = window.location.hostname.includes('github.io') 
-            ? '/repository-name-v2/ai-reply-verifier-backend/public/admin/'
-            : '/';
-        document.write(`<base href="${baseUrl}">`);
+        if (window.location.hostname.includes('github.io')) {
+            document.write('<base href="/repository-name-v2/">');
+        }
     </script>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">

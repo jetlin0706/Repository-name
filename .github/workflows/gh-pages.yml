@@ -29,59 +29,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
-      - name: Prepare deployment files
-        run: |
-          mkdir -p ./deploy
-          cp -r ./ai-reply-verifier-backend/public/admin/* ./deploy/
-          cp ./404.html ./deploy/ || true
-          cp ./index.html ./deploy/ || true
-          
-          # 创建或修改404.html
-          cat > ./deploy/404.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <script>
-              // 动态处理重定向路径
-              var path = window.location.hostname.includes('github.io') ? 
-                '/repository-name-v2/admin/' : 
-                '/admin/';
-              window.location.href = path;
-            </script>
-            <title>页面未找到 - 重定向中</title>
-          </head>
-          <body>
-            <p>正在重定向到管理页面...</p>
-          </body>
-          </html>
-          EOF
-          
-          # 创建或修改index.html
-          cat > ./deploy/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <script>
-              // 动态处理重定向路径
-              var path = window.location.hostname.includes('github.io') ? 
-                '/repository-name-v2/admin/' : 
-                '/admin/';
-              window.location.href = path;
-            </script>
-            <title>重定向到管理页面</title>
-          </head>
-          <body>
-            <p>正在重定向到管理页面...</p>
-          </body>
-          </html>
-          EOF
-        
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './deploy'
+          path: './ai-reply-verifier-backend/public/admin'
           
       - name: Deploy to GitHub Pages
         id: deployment
