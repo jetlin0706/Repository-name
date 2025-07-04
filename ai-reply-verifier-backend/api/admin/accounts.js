@@ -1,12 +1,8 @@
 // /api/admin/accounts
-import { Redis } from '@upstash/redis';
+import { kv } from '@vercel/kv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN
-});
 const JWT_SECRET = process.env.JWT_SECRET || 'ai-reply-secret';
 
 // 鉴权中间件
@@ -23,14 +19,14 @@ function getAuthPayload(req) {
 
 // 日志写入工具
 async function writeLog(user, type, detail) {
-  await redis.lpush('logs', JSON.stringify({
+  await kv.lpush('logs', JSON.stringify({
     username: user.username,
     role: user.role,
     type,
     detail,
     time: new Date().toISOString()
   }));
-  await redis.ltrim('logs', 0, 999);
+  await kv.ltrim('logs', 0, 999);
 }
 
 export default async function handler(req, res) {
@@ -65,10 +61,10 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       // 查询所有账号（不返回密码）
       console.log('获取账号列表，请求用户:', user.username);
-      const keys = await redis.keys('account:*');
+      const keys = await kv.keys('account:*');
       const accounts = [];
       for (const key of keys) {
-        const raw = await redis.get(key);
+        const raw = await kv.get(key);
         if (!raw) continue;
         let acc;
         try { acc = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { continue; }
@@ -104,7 +100,7 @@ export default async function handler(req, res) {
       }
       
       // 检查账号是否已存在
-      const exists = await redis.get(`account:${username}`);
+      const exists = await kv.get(`account:${username}`);
       if (exists) {
         console.error(`添加账号错误: 账号 ${username} 已存在`);
         return res.status(409).json({ error: '账号已存在' });
@@ -132,7 +128,7 @@ export default async function handler(req, res) {
         
         // 写入数据库
         console.log(`写入账号数据: ${username}`);
-        await redis.set(`account:${username}`, JSON.stringify(acc));
+        await kv.set(`account:${username}`, JSON.stringify(acc));
         
         // 记录日志
         await writeLog(user, 'add_account', `添加合作伙伴:${username}(${name})`);
@@ -182,13 +178,13 @@ export default async function handler(req, res) {
       
       try {
         // 检查账号是否存在
-        const accountExists = await redis.get(`account:${username}`);
+        const accountExists = await kv.get(`account:${username}`);
         if (!accountExists) {
           console.error(`删除账号错误: 账号 ${username} 不存在`);
           return res.status(404).json({ error: '账号不存在' });
         }
         
-        await redis.del(`account:${username}`);
+        await kv.del(`account:${username}`);
         await writeLog(user, 'delete_account', `删除账号:${username}`);
         console.log(`账号 ${username} 删除成功`);
         

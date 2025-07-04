@@ -19,6 +19,7 @@
       "continue": true
     },
     { "src": "/api/admin/licenses", "dest": "/ai-reply-verifier-backend/api/admin/licenses.js" },
+    { "src": "/api/admin/accounts", "dest": "/ai-reply-verifier-backend/api/admin/accounts.js" },
     { "src": "/api/admin/(.*)", "dest": "/ai-reply-verifier-backend/api/admin/$1" },
     { "src": "/api/(.*)", "dest": "/ai-reply-verifier-backend/api/$1" },
     { "handle": "filesystem" },
