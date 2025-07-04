@@ -1,10 +1,6 @@
-import { Redis } from '@upstash/redis';
+import { kv } from '@vercel/kv';
 import jwt from 'jsonwebtoken';
 
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN
-});
 const JWT_SECRET = process.env.JWT_SECRET || 'ai-reply-secret';
 const LOG_KEY = 'logs';
 const LOG_MAX = 1000; // 最多保留1000条
@@ -41,8 +37,8 @@ export default async function handler(req, res) {
       detail: detail || '',
       time: new Date().toISOString()
     };
-    await redis.lpush(LOG_KEY, JSON.stringify(log));
-    await redis.ltrim(LOG_KEY, 0, LOG_MAX - 1); // 保留最新1000条
+    await kv.lpush(LOG_KEY, JSON.stringify(log));
+    await kv.ltrim(LOG_KEY, 0, LOG_MAX - 1); // 保留最新1000条
     return res.status(200).json({ message: '日志写入成功' });
   }
 
@@ -51,7 +47,7 @@ export default async function handler(req, res) {
     const { page = 1, pageSize = 20 } = req.query;
     const start = (parseInt(page) - 1) * parseInt(pageSize);
     const end = start + parseInt(pageSize) - 1;
-    const logsRaw = await redis.lrange(LOG_KEY, start, end);
+    const logsRaw = await kv.lrange(LOG_KEY, start, end);
     let logs = logsRaw.map(str => { try { return JSON.parse(str); } catch { return null; } }).filter(Boolean);
     // 代理商只看自己
     if (user.role !== 'admin') {
