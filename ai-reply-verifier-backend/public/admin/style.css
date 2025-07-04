@@ -387,6 +387,7 @@ tr:hover {
 .search-container {
     position: relative;
     margin-bottom: 20px;
+    max-width: 400px;
 }
 
 .search-icon {

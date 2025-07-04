@@ -61,25 +61,47 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       // 查询所有账号（不返回密码）
       console.log('获取账号列表，请求用户:', user.username);
-      const keys = await kv.keys('account:*');
-      const accounts = [];
-
-      // Add the static admin user to the list for display purposes
-      accounts.push({
-        username: 'admin',
-        name: '超级管理员',
-        role: 'admin',
-        createdAt: '—'
-      });
-
-      for (const key of keys) {
-        const raw = await kv.get(key);
-        if (!raw) continue;
-        let acc;
-        try { acc = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { continue; }
-        accounts.push({ username: acc.username, name: acc.name, role: acc.role, createdAt: acc.createdAt });
+      
+      // 始终添加admin账户到列表中，确保它总是显示在列表中
+      const accounts = [
+        {
+          username: 'admin',
+          name: '超级管理员',
+          role: 'admin',
+          createdAt: '—'
+        }
+      ];
+      
+      try {
+        const keys = await kv.keys('account:*');
+        console.log(`找到${keys.length}个账号记录`);
+        
+        for (const key of keys) {
+          const raw = await kv.get(key);
+          if (!raw) continue;
+          let acc;
+          try { 
+            acc = typeof raw === 'string' ? JSON.parse(raw) : raw; 
+            // 确保不将admin重复添加到列表中
+            if (acc.username !== 'admin') {
+              accounts.push({ 
+                username: acc.username, 
+                name: acc.name, 
+                role: acc.role, 
+                createdAt: acc.createdAt 
+              });
+            }
+          } catch (e) { 
+            console.error('解析账号数据出错:', e);
+            continue; 
+          }
+        }
+      } catch (e) {
+        console.error('获取账号列表出错:', e);
+        // 即使出错，依然返回admin账号
       }
-      console.log(`获取到${accounts.length}个账号`);
+      
+      console.log(`返回${accounts.length}个账号`);
       return res.status(200).json({ accounts });
     }
 

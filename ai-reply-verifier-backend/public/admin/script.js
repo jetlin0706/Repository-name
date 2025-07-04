@@ -925,7 +925,18 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.innerHTML = `<td>${acc.username}</td><td>${acc.name}</td><td>${acc.role}</td><td>${acc.createdAt ? acc.createdAt.split('T')[0] : ''}</td><td>${ops}</td>`;
             accountsTable.appendChild(tr);
         });
+        
+        // 每次获取账号列表后，清空添加账号表单
+        clearAddAccountForm();
     }
+    
+    // 清空添加账号表单
+    function clearAddAccountForm() {
+        newAccountUsername.value = '';
+        newAccountName.value = '';
+        newAccountPassword.value = '';
+    }
+    
     // 添加账号
     addAccountForm.onsubmit = async function(e) {
         e.preventDefault();
@@ -981,7 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             console.log('添加账号成功:', data);
             alert('添加成功');
-            addAccountForm.reset();
+            clearAddAccountForm();
             fetchAccounts();
         } catch (error) {
             console.error('添加账号出错:', error);
