@@ -644,7 +644,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 仅管理员可见账号管理和操作日志
         if (currentUser && currentUser.role === 'admin') {
-            if (accountCard) accountCard.style.display = '';
+            if (accountCard) {
+                accountCard.style.display = '';
+                // 确保账号表单是空的
+                if (addAccountForm) {
+                    addAccountForm.reset();
+                    // 防止浏览器自动填充
+                    setTimeout(() => {
+                        if (newAccountUsername) newAccountUsername.value = '';
+                        if (newAccountName) newAccountName.value = '';
+                        if (newAccountPassword) newAccountPassword.value = '';
+                    }, 100);
+                }
+                // 立即加载账号列表
+                fetchAccounts();
+            }
             if (logsCard) logsCard.style.display = '';
             // 管理员显示合作伙伴统计看板
             renderPartnerStatsCard(true);
@@ -905,8 +919,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateAccountCardVisibility() {
         if (currentUser && currentUser.role === 'admin') {
             accountCard.style.display = '';
+            // 确保表单是空的
+            if (addAccountForm) {
+                addAccountForm.reset();
+                // 防止浏览器自动填充
+                setTimeout(() => {
+                    if (newAccountUsername) newAccountUsername.value = '';
+                    if (newAccountName) newAccountName.value = '';
+                    if (newAccountPassword) newAccountPassword.value = '';
+                }, 100);
+            }
             fetchAccounts();
-            addAccountForm.reset(); // 在卡片显示时重置表单，防止自动填充
         } else {
             accountCard.style.display = 'none';
         }
