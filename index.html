@@ -2,16 +2,10 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=./admin/">
+  <meta http-equiv="refresh" content="0; url=admin/">
   <title>重定向到管理页面</title>
-  <script>
-    // 根据当前域名确定正确的重定向路径
-    const currentPath = window.location.pathname;
-    const basePath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
-    window.location.href = basePath + 'admin/';
-  </script>
 </head>
 <body>
-  <p>如果您没有被自动重定向，请<a href="./admin/">点击这里</a>访问管理页面。</p>
+  <p>如果您没有被自动重定向，请<a href="admin/">点击这里</a>访问管理页面。</p>
 </body>
 </html> 
