@@ -6,9 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let apiBaseUrl;
     
     if (hostname.includes('github.io')) {
-        // GitHub Pages环境 - 使用您的实际Vercel部署URL
-        apiBaseUrl = 'https://ai-reply-verifier-backend.vercel.app/api/admin';
-        console.log('GitHub Pages环境，使用Vercel API');
+        // GitHub Pages环境 - 使用实际的Vercel部署URL
+        apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
+        console.log('GitHub Pages环境，使用Vercel API:', apiBaseUrl);
     } else if (hostname.includes('vercel.app')) {
         // Vercel环境
         apiBaseUrl = '/api/admin';
@@ -625,6 +625,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = user;
         isAuthenticated = true;
         showMainContent();
+        
+        // 测试API可用性
+        testApiAvailability();
+        
         await fetchDashboard();
         await fetchLicenses();
         
@@ -673,6 +677,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         renderSelfResetPwdBtn();
+    }
+
+    // 测试API可用性
+    async function testApiAvailability() {
+        const endpoints = [
+            `${apiBaseUrl}/dashboard`,
+            `${apiBaseUrl}/licenses`,
+            `${apiBaseUrl}/accounts`
+        ];
+        
+        console.log('开始测试API可用性...');
+        for (const endpoint of endpoints) {
+            try {
+                console.log(`测试API: ${endpoint}...`);
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: getAuthHeaders(),
+                    cache: 'no-cache'
+                });
+                console.log(`API ${endpoint} 状态码: ${response.status}`);
+                
+                // 如果是accounts API，并且响应正常，尝试解析数据
+                if (endpoint.includes('/accounts') && response.ok) {
+                    const data = await response.json();
+                    console.log('账号列表数据:', data);
+                }
+            } catch (error) {
+                console.error(`API ${endpoint} 测试失败:`, error);
+            }
+        }
+        console.log('API可用性测试完成');
     }
     
     // 初始化表单和按钮
@@ -940,7 +975,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 渲染账号表
     async function fetchAccounts() {
         try {
-            const resp = await apiFetch(apiBaseUrl + '/accounts', { headers: getAuthHeaders() });
+            console.log('开始获取账号列表，URL:', apiBaseUrl + '/accounts');
+            const resp = await apiFetch(apiBaseUrl + '/accounts', { 
+                headers: getAuthHeaders(),
+                // 添加时间戳参数，避免浏览器缓存
+                cache: 'no-cache'
+            });
             
             if (!resp.ok) {
                 const errorData = await resp.json().catch(() => ({ error: '获取账号列表失败' }));
@@ -950,6 +990,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await resp.json();
+            console.log('成功获取账号列表数据:', data);
+            
             const tableBody = accountsTable.querySelector('tbody');
 
             if (!tableBody) {
@@ -959,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tableBody.innerHTML = ''; // 正确地只清空tbody
 
             if (!data.accounts || data.accounts.length === 0) {
+                console.log('账号列表为空，显示空状态提示');
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
                 td.colSpan = 5;
@@ -967,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.appendChild(td);
                 tableBody.appendChild(tr);
             } else {
+                console.log(`渲染${data.accounts.length}个账号到表格`);
                 data.accounts.forEach(acc => {
                     const tr = document.createElement('tr');
                     let ops = '';
@@ -980,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("fetchAccounts 函数出错:", error);
-            alert("获取账号列表时发生客户端错误。");
+            alert("获取账号列表时发生客户端错误，请查看控制台获取详情。");
         }
     }
     
