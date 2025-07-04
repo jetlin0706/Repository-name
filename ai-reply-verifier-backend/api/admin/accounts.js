@@ -1,6 +1,6 @@
 // /api/admin/accounts
 import { kv } from '@vercel/kv';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ai-reply-secret';
@@ -64,13 +64,19 @@ export default async function handler(req, res) {
       const keys = await kv.keys('account:*');
       const accounts = [];
       for (const key of keys) {
+        // 从key中提取用户名，并跳过admin
+        const username = key.substring('account:'.length);
+        if (username === 'admin') {
+          continue;
+        }
+
         const raw = await kv.get(key);
         if (!raw) continue;
         let acc;
         try { acc = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { continue; }
         accounts.push({ username: acc.username, name: acc.name, role: acc.role, createdAt: acc.createdAt });
       }
-      console.log(`获取到${accounts.length}个账号`);
+      console.log(`获取到${accounts.length}个合作伙伴账号`);
       return res.status(200).json({ accounts });
     }
 
@@ -97,6 +103,11 @@ export default async function handler(req, res) {
       if (!name) {
         console.error('添加账号错误: 缺少名称');
         return res.status(400).json({ error: '名称不能为空' });
+      }
+      
+      // 禁止创建名为 'admin' 的账号
+      if (username === 'admin') {
+        return res.status(400).json({ error: '不能创建名为 "admin" 的账号' });
       }
       
       // 检查账号是否已存在
