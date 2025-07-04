@@ -6,14 +6,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let apiBaseUrl;
     
     if (hostname.includes('github.io')) {
-        // GitHub Pages环境
-        apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
+        // GitHub Pages环境 - 使用您的实际Vercel部署URL
+        apiBaseUrl = 'https://ai-reply-verifier-backend.vercel.app/api/admin';
+        console.log('GitHub Pages环境，使用Vercel API');
     } else if (hostname.includes('vercel.app')) {
         // Vercel环境
         apiBaseUrl = '/api/admin';
+        console.log('Vercel环境，使用相对路径');
     } else {
         // 本地开发环境
         apiBaseUrl = '/api/admin';
+        console.log('本地开发环境，使用相对路径');
     }
     
     console.log('当前API基础URL:', apiBaseUrl);
