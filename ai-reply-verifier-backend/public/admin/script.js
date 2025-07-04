@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let apiBaseUrl;
     
     if (hostname.includes('github.io')) {
-        // GitHub Pages环境 - 使用实际的Vercel部署URL
+        // GitHub Pages环境 - 使用您的实际Vercel部署URL
         apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
         console.log('GitHub Pages环境，使用Vercel API:', apiBaseUrl);
     } else if (hostname.includes('vercel.app')) {
@@ -625,10 +625,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = user;
         isAuthenticated = true;
         showMainContent();
-        
-        // 测试API可用性
-        testApiAvailability();
-        
         await fetchDashboard();
         await fetchLicenses();
         
@@ -651,63 +647,22 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 仅管理员可见账号管理和操作日志
         if (currentUser && currentUser.role === 'admin') {
-            if (accountCard) {
-                accountCard.style.display = '';
-                // 确保账号表单是空的
-                if (addAccountForm) {
-                    addAccountForm.reset();
-                    // 防止浏览器自动填充
-                    setTimeout(() => {
-                        if (newAccountUsername) newAccountUsername.value = '';
-                        if (newAccountName) newAccountName.value = '';
-                        if (newAccountPassword) newAccountPassword.value = '';
-                    }, 100);
-                }
-                // 立即加载账号列表
-                fetchAccounts();
-            }
+            console.log('当前用户是管理员，显示账号管理和操作日志');
+            // 调用updateAccountCardVisibility来处理账号管理卡片
+            updateAccountCardVisibility();
+            
             if (logsCard) logsCard.style.display = '';
             // 管理员显示合作伙伴统计看板
             renderPartnerStatsCard(true);
         } else {
             // 合作伙伴不显示账号管理和日志
+            console.log('当前用户不是管理员，隐藏账号管理和操作日志');
             if (accountCard) accountCard.style.display = 'none';
             if (logsCard) logsCard.style.display = 'none';
             renderPartnerStatsCard(false);
         }
         
         renderSelfResetPwdBtn();
-    }
-
-    // 测试API可用性
-    async function testApiAvailability() {
-        const endpoints = [
-            `${apiBaseUrl}/dashboard`,
-            `${apiBaseUrl}/licenses`,
-            `${apiBaseUrl}/accounts`
-        ];
-        
-        console.log('开始测试API可用性...');
-        for (const endpoint of endpoints) {
-            try {
-                console.log(`测试API: ${endpoint}...`);
-                const response = await fetch(endpoint, {
-                    method: 'GET',
-                    headers: getAuthHeaders(),
-                    cache: 'no-cache'
-                });
-                console.log(`API ${endpoint} 状态码: ${response.status}`);
-                
-                // 如果是accounts API，并且响应正常，尝试解析数据
-                if (endpoint.includes('/accounts') && response.ok) {
-                    const data = await response.json();
-                    console.log('账号列表数据:', data);
-                }
-            } catch (error) {
-                console.error(`API ${endpoint} 测试失败:`, error);
-            }
-        }
-        console.log('API可用性测试完成');
     }
     
     // 初始化表单和按钮
@@ -975,22 +930,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // 渲染账号表
     async function fetchAccounts() {
         try {
-            console.log('开始获取账号列表，URL:', apiBaseUrl + '/accounts');
+            console.log('开始获取账号列表，API URL:', apiBaseUrl + '/accounts');
             const resp = await apiFetch(apiBaseUrl + '/accounts', { 
                 headers: getAuthHeaders(),
-                // 添加时间戳参数，避免浏览器缓存
-                cache: 'no-cache'
+                method: 'GET'
             });
             
             if (!resp.ok) {
                 const errorData = await resp.json().catch(() => ({ error: '获取账号列表失败' }));
                 console.error('获取账号列表失败:', resp.status, errorData);
-                alert(`获取账号列表失败: ${errorData.error || resp.statusText}`);
+                const message = `获取账号列表失败: ${resp.status} ${errorData.error || resp.statusText}`;
+                alert(message);
+                
+                // 在表中显示错误信息
+                const tableBody = accountsTable.querySelector('tbody');
+                if (tableBody) {
+                    tableBody.innerHTML = '';
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 5;
+                    td.textContent = message;
+                    td.style.textAlign = 'center';
+                    td.style.color = 'red';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                }
                 return;
             }
 
+            console.log('账号API响应成功，状态码:', resp.status);
             const data = await resp.json();
-            console.log('成功获取账号列表数据:', data);
+            console.log('获取到的账号数据:', data);
             
             const tableBody = accountsTable.querySelector('tbody');
 
@@ -1001,7 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tableBody.innerHTML = ''; // 正确地只清空tbody
 
             if (!data.accounts || data.accounts.length === 0) {
-                console.log('账号列表为空，显示空状态提示');
+                console.log('账号列表为空');
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
                 td.colSpan = 5;
@@ -1010,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.appendChild(td);
                 tableBody.appendChild(tr);
             } else {
-                console.log(`渲染${data.accounts.length}个账号到表格`);
+                console.log(`找到 ${data.accounts.length} 个账号，开始渲染表格`);
                 data.accounts.forEach(acc => {
                     const tr = document.createElement('tr');
                     let ops = '';
@@ -1024,7 +994,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("fetchAccounts 函数出错:", error);
-            alert("获取账号列表时发生客户端错误，请查看控制台获取详情。");
+            alert("获取账号列表时发生客户端错误: " + error.message);
+            
+            // 在表中显示错误信息
+            const tableBody = accountsTable.querySelector('tbody');
+            if (tableBody) {
+                tableBody.innerHTML = '';
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 5;
+                td.textContent = '获取账号列表时发生错误: ' + error.message;
+                td.style.textAlign = 'center';
+                td.style.color = 'red';
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+            }
         }
     }
     
