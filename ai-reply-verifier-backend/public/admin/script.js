@@ -1,17 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('初始化管理后台脚本...');
     
-    // 动态确定API基础URL
-    let apiBaseUrl = '/api/admin';
+    // 配置API基础URL
+    const hostname = window.location.hostname;
+    let apiBaseUrl;
     
-    // 检测当前环境，如果是GitHub Pages，使用Vercel的完整URL
-    if (window.location.hostname.includes('github.io')) {
-        // 使用Vercel的API URL
+    if (hostname.includes('github.io')) {
+        // GitHub Pages环境
         apiBaseUrl = 'https://cursor-g8egzt964-makes-projects-63ecea9e.vercel.app/api/admin';
-        console.log('检测到GitHub Pages环境，使用Vercel API:', apiBaseUrl);
+    } else if (hostname.includes('vercel.app')) {
+        // Vercel环境
+        apiBaseUrl = '/api/admin';
     } else {
-        console.log('使用相对API路径:', apiBaseUrl);
+        // 本地开发环境
+        apiBaseUrl = '/api/admin';
     }
+    
+    console.log('当前API基础URL:', apiBaseUrl);
     
     let password = null;
     let allLicenses = {}; // Cache for licenses
@@ -128,16 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function apiFetch(url, options = {}) {
         try {
             const headers = options.headers || {};
-            options.headers = { 
-                ...headers, 
-                ...getAuthHeaders(),
-                // 添加跨域请求所需的头部
-                'Accept': 'application/json'
-            };
-            
-            // 添加跨域支持
-            options.mode = 'cors';
-            options.credentials = 'include';
+            options.headers = { ...headers, ...getAuthHeaders() };
             
             console.log(`请求API: ${url}`, options);
             const resp = await fetch(url, options);
