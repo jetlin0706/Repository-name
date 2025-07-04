@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (hostname.includes('github.io')) {
         // GitHub Pages环境
-        apiBaseUrl = 'https://cursor-g8egzt964-makes-projects-63ecea9e.vercel.app/api/admin';
+        apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
     } else if (hostname.includes('vercel.app')) {
         // Vercel环境
         apiBaseUrl = '/api/admin';
