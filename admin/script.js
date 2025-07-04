@@ -1,9 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 设置API基础URL
+    // 使用相对路径，这样在同一Vercel部署中可以正常工作
     const apiBaseUrl = '/api/admin/licenses';
-    
-    console.log('当前环境:', window.location.hostname);
-    console.log('使用API:', apiBaseUrl);
+    console.log('API URL:', apiBaseUrl);
     
     let adminPassword = null;
 
