@@ -1,23 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('初始化管理后台脚本...');
-    
-    // 配置API基础URL
-    const hostname = window.location.hostname;
-    let apiBaseUrl;
-    
-    if (hostname.includes('github.io')) {
-        // GitHub Pages环境
-        apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
-    } else if (hostname.includes('vercel.app')) {
-        // Vercel环境
-        apiBaseUrl = '/api/admin';
-    } else {
-        // 本地开发环境
-        apiBaseUrl = '/api/admin';
-    }
-    
-    console.log('当前API基础URL:', apiBaseUrl);
-    
+    // 使用相对路径，确保API路径正确
+    const apiBaseUrl = '/api/admin';
     let password = null;
     let allLicenses = {}; // Cache for licenses
     let isAuthenticated = false; // 添加认证状态标志

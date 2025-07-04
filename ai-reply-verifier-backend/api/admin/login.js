@@ -1,12 +1,7 @@
 // /api/admin/login
-import { Redis } from '@upstash/redis';
+import { kv } from '@vercel/kv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN
-});
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ai-reply-secret';
 
@@ -49,7 +44,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ token, user: testUser });
     }
 
-    const userRaw = await redis.get(`account:${username}`);
+    const userRaw = await kv.get(`account:${username}`);
     if (!userRaw) {
       console.error(`Login error: Account not found for username: ${username}`);
       return res.status(401).json({ error: '账号不存在' });

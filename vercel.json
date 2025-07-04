@@ -18,11 +18,15 @@
       },
       "continue": true
     },
-    { "src": "/", "dest": "/ai-reply-verifier-backend/public/admin/index.html" },
-    { "src": "/admin", "dest": "/ai-reply-verifier-backend/public/admin/index.html" },
-    { "src": "/admin/(.*)", "dest": "/ai-reply-verifier-backend/public/admin/$1" },
+    { "src": "/api/admin/licenses", "dest": "/ai-reply-verifier-backend/api/admin/licenses.js" },
+    { "src": "/api/admin/accounts", "dest": "/ai-reply-verifier-backend/api/admin/accounts.js" },
+    { "src": "/api/admin/dashboard", "dest": "/ai-reply-verifier-backend/api/admin/dashboard.js" },
+    { "src": "/api/admin/(.*)", "dest": "/ai-reply-verifier-backend/api/admin/$1" },
+    { "src": "/api/(.*)", "dest": "/ai-reply-verifier-backend/api/$1" },
     { "handle": "filesystem" },
-    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/admin", "dest": "/ai-reply-verifier-backend/public/admin/index.html" },
+    { "src": "/admin/(.*)", "dest": "/ai-reply-verifier-backend/public/admin/index.html" },
+    { "src": "/", "dest": "/ai-reply-verifier-backend/public/admin/index.html" },
     { "src": "/(.*)", "dest": "/ai-reply-verifier-backend/public/admin/$1" }
   ]
 } 

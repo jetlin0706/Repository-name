@@ -1,5 +1,6 @@
 {
     "public": true,
+    "regions": ["hnd1"],
     "functions": {
         "api/**/*.js": {
             "memory": 128,
