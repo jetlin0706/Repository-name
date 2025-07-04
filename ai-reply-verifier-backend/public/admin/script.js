@@ -1,7 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('初始化管理后台脚本...');
-    // 使用相对路径，确保API路径正确
-    const apiBaseUrl = '/api/admin';
+    
+    // 动态确定API基础URL
+    let apiBaseUrl = '/api/admin';
+    
+    // 检测当前环境，如果是GitHub Pages，使用Vercel的完整URL
+    if (window.location.hostname.includes('github.io')) {
+        // 使用Vercel的API URL
+        apiBaseUrl = 'https://cursor-g8egzt964-makes-projects-63ecea9e.vercel.app/api/admin';
+        console.log('检测到GitHub Pages环境，使用Vercel API:', apiBaseUrl);
+    } else {
+        console.log('使用相对API路径:', apiBaseUrl);
+    }
+    
     let password = null;
     let allLicenses = {}; // Cache for licenses
     let isAuthenticated = false; // 添加认证状态标志
@@ -117,7 +128,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function apiFetch(url, options = {}) {
         try {
             const headers = options.headers || {};
-            options.headers = { ...headers, ...getAuthHeaders() };
+            options.headers = { 
+                ...headers, 
+                ...getAuthHeaders(),
+                // 添加跨域请求所需的头部
+                'Accept': 'application/json'
+            };
+            
+            // 添加跨域支持
+            options.mode = 'cors';
+            options.credentials = 'include';
             
             console.log(`请求API: ${url}`, options);
             const resp = await fetch(url, options);
