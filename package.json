@@ -1,0 +1,12 @@
+{
+  "name": "ai-reply-verifier",
+  "version": "1.0.0",
+  "description": "AI回复点评助手管理系统",
+  "main": "index.js",
+  "scripts": {
+    "start": "serve -s ."
+  },
+  "dependencies": {
+    "serve": "^14.0.0"
+  }
+} 

@@ -1,16 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 根据当前域名确定API基础URL
-    const currentDomain = window.location.hostname;
-    let apiBaseUrl = '/api/admin/licenses';
-    
-    // 如果是GitHub Pages域名或其他非Vercel域名，使用Vercel API
-    if (currentDomain.includes('github.io') || 
-        currentDomain.includes('your-domain.com') || 
-        !currentDomain.includes('vercel.app')) {
-        // 使用东京区域(hnd1)的Vercel部署
-        apiBaseUrl = 'https://cursor-pjm59g048-makes-projects-63ecea9e.vercel.app/api/admin/licenses';
-        console.log('使用Vercel API:', apiBaseUrl);
-    }
+    // 直接使用固定的API URL，避免复杂的判断逻辑
+    const apiBaseUrl = 'https://cursor-pjm59g048-makes-projects-63ecea9e.vercel.app/api/admin/licenses';
+    console.log('使用API:', apiBaseUrl);
     
     let adminPassword = null;
 
@@ -38,36 +29,41 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data) {
             options.body = JSON.stringify(data);
         }
-        const response = await fetch(apiBaseUrl, options);
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.statusText}`);
+        try {
+            const response = await fetch(apiBaseUrl, options);
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.statusText}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error('API请求失败:', error);
+            throw error;
         }
-        return response.json();
     }
 
     // 渲染表格
     function renderTable(licenses) {
         licensesTableBody.innerHTML = '';
-        if (!licenses || licenses.length === 0) {
+        if (!licenses || Object.keys(licenses).length === 0) {
             licensesTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无授权码</td></tr>';
             return;
         }
 
-        licenses.forEach(license => {
-            const isExpired = new Date(license.expiresAt) < new Date();
+        Object.entries(licenses).forEach(([key, license]) => {
+            const isExpired = new Date(license.expiryDate) < new Date();
             const row = `
                 <tr>
-                    <td>${license.licenseKey}</td>
+                    <td>${key}</td>
                     <td>${license.hotelName}</td>
-                    <td>${license.expiresAt}</td>
+                    <td>${license.expiryDate}</td>
                     <td>
                         <span class="status ${isExpired ? 'status-expired' : 'status-valid'}">
                             ${isExpired ? '已过期' : '有效'}
                         </span>
                     </td>
                     <td>
-                        <button class="edit-btn" data-key="${license.licenseKey}">编辑</button>
-                        <button class="delete-btn" data-key="${license.licenseKey}">删除</button>
+                        <button class="edit-btn" data-key="${key}">编辑</button>
+                        <button class="delete-btn" data-key="${key}">删除</button>
                     </td>
                 </tr>
             `;
@@ -101,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
     passwordInput.addEventListener('keyup', (e) => {
         if(e.key === 'Enter') loginButton.click();
     })
-
 
     // 处理表单提交 (添加/更新)
     licenseForm.addEventListener('submit', async (e) => {
