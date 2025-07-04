@@ -859,6 +859,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const newAccountName = document.getElementById('newAccountName');
     const newAccountPassword = document.getElementById('newAccountPassword');
     const accountsTable = document.getElementById('accountsTable').querySelector('tbody');
+    const logsCard = document.getElementById('logsCard');
+    const logsTable = document.getElementById('logsTable').querySelector('tbody');
+    const logsPaginationContainer = document.getElementById('logsPagination');
+    const partnerStatsCard = document.getElementById('partnerStatsCard');
+    const statsPeriodSelector = document.getElementById('statsPeriodSelector');
+    const partnerStatsTable = document.getElementById('partnerStatsTable')?.querySelector('tbody');
 
     // 重置密码弹窗
     function showResetPwdDialog(username, callback) {
