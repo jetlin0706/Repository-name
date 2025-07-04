@@ -922,6 +922,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (newAccountPassword) newAccountPassword.value = '';
                 }, 100);
             }
+            // 立即获取账号列表数据
+            console.log('管理员登录，立即获取账号列表');
             fetchAccounts();
         } else {
             accountCard.style.display = 'none';
@@ -943,7 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(message);
                 
                 // 在表中显示错误信息
-                const tableBody = accountsTable.querySelector('tbody');
+                const tableBody = accountsTable;
                 if (tableBody) {
                     tableBody.innerHTML = '';
                     const tr = document.createElement('tr');
@@ -962,13 +964,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await resp.json();
             console.log('获取到的账号数据:', data);
             
-            const tableBody = accountsTable.querySelector('tbody');
-
-            if (!tableBody) {
-                console.error("在 accountsTable 中未找到 tbody");
+            // 直接使用accountsTable，它已经是tbody元素
+            if (!accountsTable) {
+                console.error("未找到accountsTable元素");
                 return;
             }
-            tableBody.innerHTML = ''; // 正确地只清空tbody
+            
+            // 清空表格内容
+            accountsTable.innerHTML = '';
 
             if (!data.accounts || data.accounts.length === 0) {
                 console.log('账号列表为空');
@@ -978,7 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 td.textContent = '没有找到账号信息。';
                 td.style.textAlign = 'center';
                 tr.appendChild(td);
-                tableBody.appendChild(tr);
+                accountsTable.appendChild(tr);
             } else {
                 console.log(`找到 ${data.accounts.length} 个账号，开始渲染表格`);
                 data.accounts.forEach(acc => {
@@ -989,7 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ops += `<button class='reset-pwd-btn' data-u='${acc.username}'>重置密码</button>`;
                     }
                     tr.innerHTML = `<td>${acc.username}</td><td>${acc.name}</td><td>${acc.role}</td><td>${acc.createdAt ? acc.createdAt.split('T')[0] : '—'}</td><td>${ops}</td>`;
-                    tableBody.appendChild(tr);
+                    accountsTable.appendChild(tr);
                 });
             }
         } catch (error) {
@@ -997,9 +1000,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("获取账号列表时发生客户端错误: " + error.message);
             
             // 在表中显示错误信息
-            const tableBody = accountsTable.querySelector('tbody');
-            if (tableBody) {
-                tableBody.innerHTML = '';
+            if (accountsTable) {
+                accountsTable.innerHTML = '';
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
                 td.colSpan = 5;
@@ -1007,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 td.style.textAlign = 'center';
                 td.style.color = 'red';
                 tr.appendChild(td);
-                tableBody.appendChild(tr);
+                accountsTable.appendChild(tr);
             }
         }
     }
