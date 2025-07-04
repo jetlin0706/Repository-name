@@ -5,10 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const hostname = window.location.hostname;
     let apiBaseUrl;
     
-    // 根据不同的部署环境配置不同的API基础URL
-    // 1. GitHub Pages环境: 使用绝对URL指向Vercel API
-    // 2. Vercel环境: 使用相对URL /api/admin
-    // 3. 本地开发环境: 使用相对URL /api/admin
     if (hostname.includes('github.io')) {
         // GitHub Pages环境 - 使用您的实际Vercel部署URL
         apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
