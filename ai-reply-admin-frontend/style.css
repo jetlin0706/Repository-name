@@ -501,8 +501,8 @@ tr:hover {
     
     .stat-item {
         width: 100%;
-}
-
+    }
+    
     #dashboard .stats-container {
         flex-direction: column;
     }

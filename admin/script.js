@@ -1,7 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 使用相对路径，这样在同一Vercel部署中可以正常工作
-    const apiBaseUrl = '/api/admin/licenses';
-    console.log('API URL:', apiBaseUrl);
+    // 根据当前域名确定API基础URL
+    const currentDomain = window.location.hostname;
+    let apiBaseUrl = '/api/admin/licenses';
+    
+    // 如果是GitHub Pages域名或其他非Vercel域名，使用Vercel API
+    if (currentDomain.includes('github.io') || 
+        currentDomain.includes('your-domain.com') || 
+        !currentDomain.includes('vercel.app')) {
+        // 使用东京区域(hnd1)的Vercel部署
+        apiBaseUrl = 'https://cursor-pjm59g048-makes-projects-63ecea9e.vercel.app/api/admin/licenses';
+        console.log('使用Vercel API:', apiBaseUrl);
+    }
     
     let adminPassword = null;
 

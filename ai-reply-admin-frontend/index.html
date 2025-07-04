@@ -66,23 +66,23 @@
                     <div class="form-group">
                         <label for="licenseKey"><i class="fas fa-key"></i> 授权码</label>
                         <div class="input-with-button">
-                        <input type="text" id="licenseKey" name="licenseKey" required>
+                            <input type="text" id="licenseKey" name="licenseKey" required>
                             <button type="button" id="generateKeyBtn"><i class="fas fa-random"></i> 随机生成</button>
                         </div>
                     </div>
                 </div>
                 <div class="form-row">
-                <div class="form-group">
+                    <div class="form-group">
                         <label for="hotelName"><i class="fas fa-hotel"></i> 酒店名称</label>
-                    <input type="text" id="hotelName" name="hotelName" required>
-                </div>
-                <div class="form-group">
+                        <input type="text" id="hotelName" name="hotelName" required>
+                    </div>
+                    <div class="form-group">
                         <label for="startDate"><i class="fas fa-calendar-alt"></i> 开始时间</label>
-                    <input type="date" id="startDate" name="startDate" required>
-                </div>
-                <div class="form-group">
+                        <input type="date" id="startDate" name="startDate" required>
+                    </div>
+                    <div class="form-group">
                         <label for="expiryDate"><i class="fas fa-calendar-check"></i> 到期时间</label>
-                    <input type="date" id="expiryDate" name="expiryDate" required>
+                        <input type="date" id="expiryDate" name="expiryDate" required>
                     </div>
                 </div>
                 <div class="form-actions">
@@ -98,9 +98,9 @@
                 <input type="text" id="searchInput" placeholder="搜索酒店名称或授权码">
             </div>
             <div class="table-responsive">
-            <table id="licensesTable">
-                <thead>
-                    <tr>
+                <table id="licensesTable">
+                    <thead>
+                        <tr>
                             <th><i class="fas fa-key"></i> 授权码</th>
                             <th><i class="fas fa-hotel"></i> 酒店名称</th>
                             <th><i class="fas fa-calendar-alt"></i> 开始时间</th>
@@ -110,13 +110,13 @@
                             <th><i class="fas fa-network-wired"></i> 最近激活IP</th>
                             <th><i class="fas fa-user-edit"></i> 创建人</th>
                             <th><i class="fas fa-cogs"></i> 操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Data will be populated here -->
-                </tbody>
-            </table>
-        </div>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
             <div id="pagination" class="pagination"></div>
         </div>
 
