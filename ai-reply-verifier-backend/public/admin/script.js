@@ -471,168 +471,76 @@ document.addEventListener('DOMContentLoaded', () => {
         expiryDateInput.type = 'date';
     }
 
-    async function login(password) {
-        try {
-            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
-                method: 'GET',
-                headers: { 'Authorization': `Basic ${btoa(`:${password}`)}` }
-            });
-            
-            if (response.status === 401) {
-                document.getElementById('loginMessage').textContent = '密码错误，请重试';
-                return false;
-            }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Login error:', error);
-            document.getElementById('loginMessage').textContent = '登录时发生错误，请重试';
-            return false;
-        }
-    }
-    
-    // 添加默认JD-FIRST-KEY授权码
-    async function addDefaultLicense() {
-        if (!isAuthenticated) {
-            alert('请先登录');
-            showLoginForm();
+    async function handleLogin() {
+        console.log('开始登录流程...');
+        const username = loginUsername ? loginUsername.value : document.getElementById('loginUsername')?.value;
+        const password = loginPassword ? loginPassword.value : document.getElementById('loginPassword')?.value;
+        
+        if (!username || !password) {
+            if (loginMessage) loginMessage.textContent = '请输入用户名和密码';
             return;
         }
+        
+        const btn = loginBtn || document.getElementById('loginBtn');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '登录中...';
+        
+        if (loginMessage) loginMessage.textContent = '';
         
         try {
-            const today = new Date();
-            const oneYearLater = new Date(today);
-            oneYearLater.setFullYear(today.getFullYear() + 1);
+            console.log(`准备发送登录请求到: ${apiBaseUrl}/login`);
+            console.log('登录参数:', { username, password: '***' });
             
-            const licenseData = {
-                licenseKey: 'JD-FIRST-KEY',
-                hotelName: '默认酒店',
-                startDate: today.toISOString().split('T')[0],
-                expiryDate: oneYearLater.toISOString().split('T')[0]
-            };
-            
-            console.log('添加默认授权码:', licenseData);
-            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
-                method: 'POST',
-                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify(licenseData)
-            });
-            
-            if (response.status === 401) {
-                isAuthenticated = false;
-                showLoginForm();
-                return;
-            }
-            
-            if (!response.ok) {
-                console.error('添加默认授权码失败:', response.status);
-                alert('添加默认授权码失败');
-                return;
-            }
-            
-            console.log('默认授权码添加成功');
-            alert('默认授权码添加成功');
-            fetchLicenses();
-        } catch (error) {
-            console.error('添加默认授权码出错:', error);
-            alert('添加默认授权码出错: ' + error.message);
-        }
-    }
-    
-    // 登录处理
-    function handleLogin() {
-        if (loginContainer && loginContainer.style.display !== 'none') {
-            // 新版登录
-            const username = loginUsername.value.trim();
-            const password = loginPassword.value.trim();
-            
-            if (!username || !password) {
-                loginMessage.textContent = '请输入用户名和密码';
-                return;
-            }
-            
-            loginBtn.disabled = true;
-            loginMessage.textContent = '登录中...';
-            
-            fetch(`${apiBaseUrl}/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            })
-            .then(resp => resp.json())
-            .then(data => {
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                if (data.token && data.user) {
-                    localStorage.setItem('token', data.token);
-                    loginAndInit(data.token, data.user);
-                } else {
-                    throw new Error('登录失败：无效响应');
-                }
-            })
-            .catch(err => {
-                loginMessage.textContent = err.message || '登录失败';
-                loginBtn.disabled = false;
-            });
-            return;
-        }
-        
-        // 旧版登录兼容
-        const passwordInput = document.getElementById('adminPassword');
-        if (!passwordInput) return;
-        
-        const enteredPassword = passwordInput.value.trim();
-        
-        if (!enteredPassword) {
-            document.getElementById('loginMessage').textContent = '请输入密码';
-            return;
-        }
-        
-        login(enteredPassword).then(success => {
-            if (success) {
-                password = enteredPassword;
-                isAuthenticated = true;
-                showMainContent();
-                fetchLicenses();
-            }
-        });
-    }
-    
-    // 添加登录按钮事件监听
-    function setupLoginForm() {
-        if (loginContainer && loginBtn && loginPassword) {
-            // 新版登录表单
-            loginBtn.addEventListener('click', handleLogin);
-            loginPassword.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleLogin();
-                }
-            });
-            return;
-        }
-        
-        // 等待旧版登录表单创建完成
-        setTimeout(() => {
-            // 旧版登录兼容
-            const oldLoginBtn = document.getElementById('loginBtn');
-            const passwordInput = document.getElementById('adminPassword');
-            
-            if (oldLoginBtn && passwordInput) {
-                oldLoginBtn.addEventListener('click', handleLogin);
-                passwordInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleLogin();
-                    }
+            // 先测试Worker是否可访问
+            try {
+                const testResp = await fetch('https://ai-reply-proxy-new.jetlin0706.workers.dev/', { 
+                    method: 'GET',
+                    mode: 'cors'
                 });
+                console.log('Worker测试响应:', await testResp.text());
+            } catch (testErr) {
+                console.error('Worker测试失败:', testErr);
             }
-        }, 100);
+            
+            const response = await fetch(`${apiBaseUrl}/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password })
+            });
+            
+            console.log('登录响应状态:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('登录失败:', errorText);
+                try {
+                    const errorData = JSON.parse(errorText);
+                    if (loginMessage) loginMessage.textContent = errorData.error || '登录失败';
+                } catch (e) {
+                    if (loginMessage) loginMessage.textContent = '登录失败: ' + response.status;
+                }
+                return;
+            }
+            
+            const data = await response.json();
+            console.log('登录成功，响应数据:', data);
+            
+            if (data.token) {
+                await loginAndInit(data.token, data.user);
+            } else {
+                console.error('登录响应缺少token');
+                if (loginMessage) loginMessage.textContent = '登录成功但缺少token';
+            }
+        } catch (error) {
+            console.error('登录过程出错:', error);
+            if (loginMessage) loginMessage.textContent = '登录请求失败: ' + error.message;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
     }
     
     // 登录成功后，拉取dashboard数据
@@ -1406,5 +1314,110 @@ document.addEventListener('DOMContentLoaded', () => {
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">数据加载失败: ${error.message}</td></tr>`;
             }
         }
+    }
+
+    // 添加默认JD-FIRST-KEY授权码
+    async function addDefaultLicense() {
+        if (!isAuthenticated) {
+            alert('请先登录');
+            showLoginForm();
+            return;
+        }
+        
+        try {
+            const today = new Date();
+            const oneYearLater = new Date(today);
+            oneYearLater.setFullYear(today.getFullYear() + 1);
+            
+            const licenseData = {
+                licenseKey: 'JD-FIRST-KEY',
+                hotelName: '默认酒店',
+                startDate: today.toISOString().split('T')[0],
+                expiryDate: oneYearLater.toISOString().split('T')[0]
+            };
+            
+            console.log('添加默认授权码:', licenseData);
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
+                method: 'POST',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(licenseData)
+            });
+            
+            if (response.status === 401) {
+                isAuthenticated = false;
+                showLoginForm();
+                return;
+            }
+            
+            if (!response.ok) {
+                console.error('添加默认授权码失败:', response.status);
+                alert('添加默认授权码失败');
+                return;
+            }
+            
+            console.log('默认授权码添加成功');
+            alert('默认授权码添加成功');
+            fetchLicenses();
+        } catch (error) {
+            console.error('添加默认授权码出错:', error);
+            alert('添加默认授权码出错: ' + error.message);
+        }
+    }
+    
+    // 旧版登录函数，保留兼容性
+    async function login(password) {
+        try {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
+                method: 'GET',
+                headers: { 'Authorization': `Basic ${btoa(`:${password}`)}` }
+            });
+            
+            if (response.status === 401) {
+                document.getElementById('loginMessage').textContent = '密码错误，请重试';
+                return false;
+            }
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Login error:', error);
+            document.getElementById('loginMessage').textContent = '登录时发生错误，请重试';
+            return false;
+        }
+    }
+
+    // 添加登录按钮事件监听
+    function setupLoginForm() {
+        if (loginContainer && loginBtn && loginPassword) {
+            // 新版登录表单
+            loginBtn.addEventListener('click', handleLogin);
+            loginPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleLogin();
+                }
+            });
+            return;
+        }
+        
+        // 等待旧版登录表单创建完成
+        setTimeout(() => {
+            // 旧版登录兼容
+            const oldLoginBtn = document.getElementById('loginBtn');
+            const passwordInput = document.getElementById('adminPassword');
+            
+            if (oldLoginBtn && passwordInput) {
+                oldLoginBtn.addEventListener('click', handleLogin);
+                passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleLogin();
+                    }
+                });
+            }
+        }, 100);
     }
 }); 
