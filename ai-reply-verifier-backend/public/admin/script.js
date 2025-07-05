@@ -6,9 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let apiBaseUrl;
     
     if (hostname.includes('github.io')) {
-        // GitHub Pages环境 - 使用您的实际Vercel部署URL
-        apiBaseUrl = 'https://ai-reply-verifier.vercel.app/api/admin';
-        console.log('GitHub Pages环境，使用Vercel API:', apiBaseUrl);
+        // GitHub Pages环境 - 使用Cloudflare Worker代理
+        apiBaseUrl = 'https://ai-reply-proxy-new.jetlin0706.workers.dev/api/admin';
+        console.log('GitHub Pages环境，使用Cloudflare代理API:', apiBaseUrl);
     } else if (hostname.includes('vercel.app')) {
         // Vercel环境
         apiBaseUrl = '/api/admin';
