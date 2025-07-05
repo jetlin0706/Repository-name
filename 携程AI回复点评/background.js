@@ -279,8 +279,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-// === 新增：激活码实时校验接口 ===
-const VERIFIER_URL = 'https://repository-name-v2.vercel.app/api/verify';
+// 授权验证API地址
+const VERIFIER_URL = 'https://ai-reply-proxy-new.jetlin0706.workers.dev/api/verify';
 
 // 处理AI回复生成请求
 async function handleGetAiReply(request) {

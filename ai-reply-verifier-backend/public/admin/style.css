@@ -387,6 +387,7 @@ tr:hover {
 .search-container {
     position: relative;
     margin-bottom: 20px;
+    max-width: 400px;
 }
 
 .search-icon {
@@ -551,6 +552,16 @@ tr:hover {
 #logsTable tr:hover {
     background-color: #e3f1fb;
     cursor: pointer;
+}
+
+/* 禁用自动填充背景色 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: inherit !important;
+    transition: background-color 5000s ease-in-out 0s;
 }
 
 /* 美化滚动条 */

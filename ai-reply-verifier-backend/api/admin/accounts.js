@@ -43,8 +43,13 @@ export default async function handler(req, res) {
     const lastPathPart = pathParts[pathParts.length - 1];
     
     if (lastPathPart === 'me') {
+      console.log('处理/me路径请求，获取当前用户信息');
       const user = getAuthPayload(req);
-      if (!user) return res.status(401).json({ error: '未登录或token无效' });
+      if (!user) {
+        console.log('未登录或token无效');
+        return res.status(401).json({ error: '未登录或token无效' });
+      }
+      console.log('返回当前用户信息:', user);
       return res.status(200).json({ 
         user: { 
           username: user.username, 
@@ -61,25 +66,58 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       // 查询所有账号（不返回密码）
       console.log('获取账号列表，请求用户:', user.username);
-      const keys = await kv.keys('account:*');
-      const accounts = [];
-
-      // Add the static admin user to the list for display purposes
-      accounts.push({
-        username: 'admin',
-        name: '超级管理员',
-        role: 'admin',
-        createdAt: '—'
-      });
-
-      for (const key of keys) {
-        const raw = await kv.get(key);
-        if (!raw) continue;
-        let acc;
-        try { acc = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { continue; }
-        accounts.push({ username: acc.username, name: acc.name, role: acc.role, createdAt: acc.createdAt });
+      
+      // 始终添加admin账户到列表中，确保它总是显示在列表中
+      const accounts = [
+        {
+          username: 'admin',
+          name: '超级管理员',
+          role: 'admin',
+          createdAt: '—'
+        }
+      ];
+      
+      try {
+        const keys = await kv.keys('account:*');
+        console.log(`找到${keys.length}个账号记录，keys:`, keys);
+        
+        for (const key of keys) {
+          const raw = await kv.get(key);
+          console.log(`获取到账号数据 ${key}:`, raw);
+          
+          if (!raw) {
+            console.log(`账号 ${key} 数据为空，跳过`);
+            continue;
+          }
+          
+          let acc;
+          try { 
+            acc = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            console.log(`解析后的账号数据:`, acc);
+            
+            // 确保不将admin重复添加到列表中
+            if (acc.username !== 'admin') {
+              accounts.push({ 
+                username: acc.username, 
+                name: acc.name, 
+                role: acc.role, 
+                createdAt: acc.createdAt 
+              });
+              console.log(`添加账号 ${acc.username} 到列表`);
+            } else {
+              console.log(`跳过admin账号，因为已经添加过了`);
+            }
+          } catch (e) { 
+            console.error(`解析账号数据出错 ${key}:`, e);
+            continue; 
+          }
+        }
+      } catch (e) {
+        console.error('获取账号列表出错:', e);
+        // 即使出错，依然返回admin账号
       }
-      console.log(`获取到${accounts.length}个账号`);
+      
+      console.log(`返回${accounts.length}个账号:`, accounts);
       return res.status(200).json({ accounts });
     }
 

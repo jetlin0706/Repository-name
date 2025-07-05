@@ -1,19 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('初始化管理后台脚本...');
     
+    // 立即检查登录状态
+    checkLoginStatus();
+    
     // 配置API基础URL
     const hostname = window.location.hostname;
     let apiBaseUrl;
     
     if (hostname.includes('github.io')) {
-        // GitHub Pages环境
-        apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
+        // GitHub Pages环境 - 使用Cloudflare Worker代理
+        apiBaseUrl = 'https://ai-reply-proxy-new.jetlin0706.workers.dev/api/admin';
+        console.log('GitHub Pages环境，使用Cloudflare代理API:', apiBaseUrl);
     } else if (hostname.includes('vercel.app')) {
         // Vercel环境
         apiBaseUrl = '/api/admin';
+        console.log('Vercel环境，使用相对路径');
     } else {
         // 本地开发环境
         apiBaseUrl = '/api/admin';
+        console.log('本地开发环境，使用相对路径');
     }
     
     console.log('当前API基础URL:', apiBaseUrl);
@@ -56,6 +62,69 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.querySelector('.container');
     // 创建旧版登录容器的引用
     let oldLoginContainer = null;
+
+    // 登录状态检查函数
+    async function checkLoginStatus() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.log('未检测到登录token，显示登录表单');
+            showLoginForm();
+            return false;
+        }
+
+        try {
+            // 验证token有效性
+            const response = await fetch(`${apiBaseUrl}/verify-token`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Token验证失败');
+            }
+
+            const data = await response.json();
+            if (data.valid) {
+                console.log('Token有效，保持登录状态');
+                currentUser = data.user;
+                showMainContent();
+                updateUserInfo();
+                return true;
+            } else {
+                throw new Error('Token已过期');
+            }
+        } catch (error) {
+            console.error('Token验证出错:', error);
+            localStorage.removeItem('token');
+            showLoginForm();
+            return false;
+        }
+    }
+
+    // 更新用户信息显示
+    function updateUserInfo() {
+        const userInfo = document.getElementById('userInfo');
+        const welcomeText = document.getElementById('welcomeText');
+        if (currentUser && userInfo && welcomeText) {
+            userInfo.style.display = 'flex';
+            welcomeText.textContent = `欢迎，${currentUser.name || currentUser.username}`;
+        }
+    }
+
+    // 登出函数
+    function logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('mock_token');
+        currentUser = null;
+        showLoginForm();
+    }
+
+    // 添加登出按钮事件监听
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
 
     // 隐藏主要内容，显示登录表单
     function showLoginForm() {
@@ -124,13 +193,143 @@ document.addEventListener('DOMContentLoaded', () => {
         if (jwtToken) {
             return { 'Authorization': `Bearer ${jwtToken}` };
         }
+        // 检查模拟token
+        const mockToken = localStorage.getItem('mock_token');
+        if (mockToken) {
+            return { 'Authorization': `Bearer ${mockToken}` };
+        }
         if (!password) return {};
         const encoded = btoa(`:${password}`);
         return { 'Authorization': `Basic ${encoded}` };
     }
 
-    // 封装fetch，自动处理401
+    // 封装fetch，自动处理401和网络错误
     async function apiFetch(url, options = {}) {
+        let retries = 2; // 重试次数
+        let lastError = null;
+        
+        // 检查是否使用模拟模式
+        const mockToken = localStorage.getItem('mock_token');
+        if (mockToken && url.includes('/api/admin')) {
+            console.log('使用模拟数据模式');
+            
+            // 模拟licenses接口
+            if (url.includes('/licenses')) {
+                if (options.method === 'GET') {
+                    console.log('返回模拟授权码数据');
+                    // 返回模拟的授权码数据
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            "JD-FIRST-KEY": JSON.stringify({
+                                hotelName: "示例酒店",
+                                startDate: "2023-01-01",
+                                expiryDate: "2099-12-31",
+                                createdBy: "admin",
+                                creatorName: "超级管理员",
+                                activations: [
+                                    { ip: "127.0.0.1", timestamp: new Date().toISOString() }
+                                ]
+                            }),
+                            "DEMO-KEY": JSON.stringify({
+                                hotelName: "演示酒店",
+                                startDate: "2023-06-01",
+                                expiryDate: "2099-12-31", 
+                                createdBy: "admin",
+                                creatorName: "超级管理员",
+                                activations: []
+                            })
+                        })
+                    };
+                } else if (options.method === 'POST') {
+                    console.log('模拟添加授权码');
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({ success: true })
+                    };
+                } else if (options.method === 'DELETE') {
+                    console.log('模拟删除授权码');
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({ success: true })
+                    };
+                }
+            }
+            
+            // 模拟dashboard接口
+            if (url.includes('/dashboard')) {
+                console.log('返回模拟仪表盘数据');
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        total: 2,
+                        active: 2,
+                        todayActivations: 1,
+                        period: 'month',
+                        agentStats: [
+                            {
+                                username: 'agent1',
+                                name: '代理商A',
+                                licenseCount: 10,
+                                activeCount: 8,
+                                todayActivations: 2,
+                                trend: 5
+                            },
+                            {
+                                username: 'agent2',
+                                name: '代理商B',
+                                licenseCount: 5,
+                                activeCount: 4,
+                                todayActivations: 1,
+                                trend: -2
+                            }
+                        ]
+                    })
+                };
+            }
+            
+            // 模拟accounts接口
+            if (url.includes('/accounts')) {
+                if (options.method === 'GET') {
+                    console.log('返回模拟账号数据');
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            accounts: [
+                                {
+                                    username: 'admin',
+                                    name: '超级管理员',
+                                    role: 'admin',
+                                    createdAt: '2023-01-01T00:00:00Z'
+                                },
+                                {
+                                    username: 'agent1',
+                                    name: '代理商A',
+                                    role: 'agent',
+                                    createdAt: '2023-02-15T00:00:00Z'
+                                }
+                            ]
+                        })
+                    };
+                }
+            }
+            
+            // 对于其他API，返回成功但无数据
+            console.log('返回通用模拟响应');
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({ success: true })
+            };
+        }
+        
+        // 正常API请求处理
+        while (retries >= 0) {
         try {
             const headers = options.headers || {};
             options.headers = { ...headers, ...getAuthHeaders() };
@@ -142,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resp.status === 401) {
                 // 清除token
                 localStorage.removeItem('token');
+                    localStorage.removeItem('mock_token');
                 jwtToken = null;
                 isAuthenticated = false;
                 currentUser = null;
@@ -157,8 +357,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return resp;
         } catch (error) {
             console.error(`API请求失败: ${url}`, error);
+                lastError = error;
+                
+                // 只有在网络错误时尝试重试，其他错误直接抛出
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    console.log(`请求失败，剩余重试次数: ${retries}`);
+                    if (retries > 0) {
+                        retries--;
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒后重试
+                        continue;
+                    }
+                }
             throw error;
         }
+        }
+        throw lastError; // 所有重试都失败了
     }
 
     // 获取仪表盘数据
@@ -451,186 +664,101 @@ document.addEventListener('DOMContentLoaded', () => {
         expiryDateInput.type = 'date';
     }
 
-    async function login(password) {
-        try {
-            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
-                method: 'GET',
-                headers: { 'Authorization': `Basic ${btoa(`:${password}`)}` }
-            });
-            
-            if (response.status === 401) {
-                document.getElementById('loginMessage').textContent = '密码错误，请重试';
-                return false;
-            }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Login error:', error);
-            document.getElementById('loginMessage').textContent = '登录时发生错误，请重试';
-            return false;
-        }
-    }
-    
-    // 添加默认JD-FIRST-KEY授权码
-    async function addDefaultLicense() {
-        if (!isAuthenticated) {
-            alert('请先登录');
-            showLoginForm();
+    async function handleLogin() {
+        if (!loginUsername || !loginPassword) {
+            console.error('登录表单元素未找到');
             return;
         }
         
-        try {
-            const today = new Date();
-            const oneYearLater = new Date(today);
-            oneYearLater.setFullYear(today.getFullYear() + 1);
-            
-            const licenseData = {
-                licenseKey: 'JD-FIRST-KEY',
-                hotelName: '默认酒店',
-                startDate: today.toISOString().split('T')[0],
-                expiryDate: oneYearLater.toISOString().split('T')[0]
-            };
-            
-            console.log('添加默认授权码:', licenseData);
-            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
-                method: 'POST',
-                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify(licenseData)
-            });
-            
-            if (response.status === 401) {
-                isAuthenticated = false;
-                showLoginForm();
-                return;
-            }
-            
-            if (!response.ok) {
-                console.error('添加默认授权码失败:', response.status);
-                alert('添加默认授权码失败');
-                return;
-            }
-            
-            console.log('默认授权码添加成功');
-            alert('默认授权码添加成功');
-            fetchLicenses();
-        } catch (error) {
-            console.error('添加默认授权码出错:', error);
-            alert('添加默认授权码出错: ' + error.message);
-        }
-    }
-    
-    // 登录处理
-    function handleLogin() {
-        if (loginContainer && loginContainer.style.display !== 'none') {
-            // 新版登录
             const username = loginUsername.value.trim();
             const password = loginPassword.value.trim();
             
+        // 输入验证
             if (!username || !password) {
                 loginMessage.textContent = '请输入用户名和密码';
+            loginMessage.style.display = 'block';
                 return;
             }
             
+        // 禁用登录按钮，显示加载状态
             loginBtn.disabled = true;
-            loginMessage.textContent = '登录中...';
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+        loginMessage.style.display = 'none';
             
-            fetch(`${apiBaseUrl}/login`, {
+        try {
+            const response = await fetch(`${apiBaseUrl}/login`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            })
-            .then(resp => resp.json())
-            .then(data => {
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                if (data.token && data.user) {
-                    localStorage.setItem('token', data.token);
-                    loginAndInit(data.token, data.user);
-                } else {
-                    throw new Error('登录失败：无效响应');
-                }
-            })
-            .catch(err => {
-                loginMessage.textContent = err.message || '登录失败';
-                loginBtn.disabled = false;
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username,
+                    password
+                })
             });
-            return;
-        }
-        
-        // 旧版登录兼容
-        const passwordInput = document.getElementById('adminPassword');
-        if (!passwordInput) return;
-        
-        const enteredPassword = passwordInput.value.trim();
-        
-        if (!enteredPassword) {
-            document.getElementById('loginMessage').textContent = '请输入密码';
-            return;
-        }
-        
-        login(enteredPassword).then(success => {
-            if (success) {
-                password = enteredPassword;
-                isAuthenticated = true;
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || '登录失败，请检查用户名和密码');
+            }
+
+            if (!data.token) {
+                throw new Error('服务器响应错误：未返回token');
+                }
+
+            // 保存token和用户信息
+            localStorage.setItem('token', data.token);
+            currentUser = data.user;
+
+            // 更新界面
+            loginContainer.style.display = 'none';
                 showMainContent();
-                fetchLicenses();
-            }
-        });
-    }
-    
-    // 添加登录按钮事件监听
-    function setupLoginForm() {
-        if (loginContainer && loginBtn && loginPassword) {
-            // 新版登录表单
-            loginBtn.addEventListener('click', handleLogin);
-            loginPassword.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleLogin();
-                }
-            });
-            return;
-        }
-        
-        // 等待旧版登录表单创建完成
-        setTimeout(() => {
-            // 旧版登录兼容
-            const oldLoginBtn = document.getElementById('loginBtn');
-            const passwordInput = document.getElementById('adminPassword');
-            
-            if (oldLoginBtn && passwordInput) {
-                oldLoginBtn.addEventListener('click', handleLogin);
-                passwordInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleLogin();
+            updateUserInfo();
+
+            // 初始化数据
+            await Promise.all([
+                fetchDashboard(),
+                fetchLicenses(),
+                data.user.role === 'admin' ? fetchAccounts() : null
+            ].filter(Boolean));
+
+            // 根据用户角色更新界面
+            updateAccountCardVisibility();
+            showLogsCard(data.user.role === 'admin');
+            renderPartnerStatsCard(data.user.role === 'admin');
+
+        } catch (error) {
+            console.error('登录错误:', error);
+            loginMessage.textContent = error.message || '登录失败，请稍后重试';
+            loginMessage.style.display = 'block';
+        } finally {
+            // 恢复登录按钮状态
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 登录';
+            // 清空密码输入
+            loginPassword.value = '';
                     }
-                });
-            }
-        }, 100);
     }
     
     // 登录成功后，拉取dashboard数据
     async function loginAndInit(token, user) {
+        console.log('登录成功，初始化界面...');
+        try {
+            // 设置身份验证状态
         jwtToken = token;
-        password = token; // 兼容旧逻辑
+            localStorage.setItem('token', token);
         currentUser = user;
         isAuthenticated = true;
-        showMainContent();
-        await fetchDashboard();
-        await fetchLicenses();
         
         // 显示用户信息
         const userInfo = document.getElementById('userInfo');
         const welcomeText = document.getElementById('welcomeText');
-        if (userInfo && welcomeText) {
-            userInfo.style.display = 'flex';
-            welcomeText.textContent = `欢迎，${user.name} (${user.role === 'admin' ? '管理员' : '合作伙伴'})`;
+            
+            if (userInfo) userInfo.style.display = 'flex';
+            if (welcomeText) {
+                const roleName = user.role === 'admin' ? '超级管理员' : '合作伙伴';
+                welcomeText.textContent = `欢迎回来，${user.name || user.username}（${roleName}）`;
         }
         
         // 添加登出按钮事件
@@ -642,20 +770,51 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         
-        // 仅管理员可见账号管理和操作日志
-        if (currentUser && currentUser.role === 'admin') {
-            if (accountCard) accountCard.style.display = '';
-            if (logsCard) logsCard.style.display = '';
-            // 管理员显示合作伙伴统计看板
+            // 管理员显示账号管理卡片
+            console.log('当前用户角色:', user.role);
+            updateAccountCardVisibility();
+            
+            // 获取数据
+            await Promise.all([
+                fetchLicenses(),
+                fetchDashboard()
+            ]);
+            
+            // 显示主要内容
+            showMainContent();
+            
+            // 管理员显示操作日志和合作伙伴数据看板
+            if (user.role === 'admin') {
+                console.log('显示管理员特有功能');
+                showLogsCard(true);
+                // 确保合作伙伴统计看板正确初始化
             renderPartnerStatsCard(true);
+                try {
+                    const periodSelector = document.getElementById('statsPeriod');
+                    if (periodSelector) {
+                        console.log('获取合作伙伴统计数据，周期:', periodSelector.value);
+                        await fetchPartnerStats(periodSelector.value);
         } else {
-            // 合作伙伴不显示账号管理和日志
-            if (accountCard) accountCard.style.display = 'none';
-            if (logsCard) logsCard.style.display = 'none';
+                        console.log('未找到统计周期选择器，使用默认周期');
+                        await fetchPartnerStats('month');
+                    }
+                } catch (statsError) {
+                    console.error('获取合作伙伴统计数据失败:', statsError);
+                }
+            } else {
+                // 非管理员不显示操作日志和合作伙伴统计
+                showLogsCard(false);
             renderPartnerStatsCard(false);
         }
         
+            // 非管理员显示重置密码按钮
         renderSelfResetPwdBtn();
+            
+            console.log('界面初始化完成');
+        } catch (error) {
+            console.error('初始化界面失败:', error);
+            alert('初始化界面失败: ' + error.message);
+        }
     }
     
     // 初始化表单和按钮
@@ -905,6 +1064,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateAccountCardVisibility() {
         if (currentUser && currentUser.role === 'admin') {
             accountCard.style.display = '';
+            // 确保表单是空的
+            if (addAccountForm) {
+                addAccountForm.reset();
+                // 防止浏览器自动填充
+                setTimeout(() => {
+                    if (newAccountUsername) newAccountUsername.value = '';
+                    if (newAccountName) newAccountName.value = '';
+                    if (newAccountPassword) newAccountPassword.value = '';
+                }, 100);
+            }
+            // 立即获取账号列表数据
+            console.log('管理员登录，立即获取账号列表');
             fetchAccounts();
         } else {
             accountCard.style.display = 'none';
@@ -912,20 +1083,89 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // 渲染账号表
     async function fetchAccounts() {
-        const resp = await apiFetch(apiBaseUrl + '/accounts', { headers: getAuthHeaders() });
-        const data = await resp.json();
-        accountsTable.innerHTML = '';
-        (data.accounts || []).forEach(acc => {
-            const tr = document.createElement('tr');
-            let ops = '';
-            if (acc.username !== 'admin') {
-                ops += `<button class='del-account-btn' data-u='${acc.username}'>删除</button>`;
-                ops += `<button class='reset-pwd-btn' data-u='${acc.username}'>重置密码</button>`;
+        try {
+            console.log('开始获取账号列表，API URL:', apiBaseUrl + '/accounts');
+            const resp = await apiFetch(apiBaseUrl + '/accounts', { 
+                headers: getAuthHeaders(),
+                method: 'GET'
+            });
+            
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({ error: '获取账号列表失败' }));
+                console.error('获取账号列表失败:', resp.status, errorData);
+                const message = `获取账号列表失败: ${resp.status} ${errorData.error || resp.statusText}`;
+                alert(message);
+                
+                // 在表中显示错误信息
+                const tableBody = accountsTable;
+                if (tableBody) {
+                    tableBody.innerHTML = '';
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 5;
+                    td.textContent = message;
+                    td.style.textAlign = 'center';
+                    td.style.color = 'red';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                }
+                return;
             }
-            tr.innerHTML = `<td>${acc.username}</td><td>${acc.name}</td><td>${acc.role}</td><td>${acc.createdAt ? acc.createdAt.split('T')[0] : ''}</td><td>${ops}</td>`;
-            accountsTable.appendChild(tr);
-        });
+
+            console.log('账号API响应成功，状态码:', resp.status);
+            const data = await resp.json();
+            console.log('获取到的账号数据:', data);
+            
+            // 直接使用accountsTable，它已经是tbody元素
+            if (!accountsTable) {
+                console.error("未找到accountsTable元素");
+                return;
+            }
+            
+            // 清空表格内容
+            accountsTable.innerHTML = '';
+
+            if (!data.accounts || data.accounts.length === 0) {
+                console.log('账号列表为空');
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 5;
+                td.textContent = '没有找到账号信息。';
+                td.style.textAlign = 'center';
+                tr.appendChild(td);
+                accountsTable.appendChild(tr);
+            } else {
+                console.log(`找到 ${data.accounts.length} 个账号，开始渲染表格`);
+                data.accounts.forEach(acc => {
+                    const tr = document.createElement('tr');
+                    let ops = '';
+                    if (acc.username !== 'admin') {
+                        ops += `<button class='del-account-btn' data-u='${acc.username}'>删除</button>`;
+                        ops += `<button class='reset-pwd-btn' data-u='${acc.username}'>重置密码</button>`;
+                    }
+                    tr.innerHTML = `<td>${acc.username}</td><td>${acc.name}</td><td>${acc.role}</td><td>${acc.createdAt ? acc.createdAt.split('T')[0] : '—'}</td><td>${ops}</td>`;
+                    accountsTable.appendChild(tr);
+                });
+            }
+        } catch (error) {
+            console.error("fetchAccounts 函数出错:", error);
+            alert("获取账号列表时发生客户端错误: " + error.message);
+            
+            // 在表中显示错误信息
+            if (accountsTable) {
+                accountsTable.innerHTML = '';
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 5;
+                td.textContent = '获取账号列表时发生错误: ' + error.message;
+                td.style.textAlign = 'center';
+                td.style.color = 'red';
+                tr.appendChild(td);
+                accountsTable.appendChild(tr);
+            }
+        }
     }
+    
     // 添加账号
     addAccountForm.onsubmit = async function(e) {
         e.preventDefault();
@@ -981,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             console.log('添加账号成功:', data);
             alert('添加成功');
-            addAccountForm.reset();
+            addAccountForm.reset(); // 使用标准的reset()方法
             fetchAccounts();
         } catch (error) {
             console.error('添加账号出错:', error);
@@ -1223,16 +1463,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // 获取合作伙伴统计数据
     async function fetchPartnerStats(period = 'month') {
         try {
+            console.log(`获取合作伙伴统计数据，周期: ${period}，URL: ${apiBaseUrl}/dashboard?period=${period}`);
             const resp = await apiFetch(`${apiBaseUrl}/dashboard?period=${period}`);
+            
             if (!resp.ok) {
-                throw new Error('获取数据失败');
+                console.error('获取合作伙伴统计数据失败:', resp.status, resp.statusText);
+                throw new Error(`获取数据失败: ${resp.status} ${resp.statusText}`);
             }
             
             const data = await resp.json();
+            console.log('获取到的合作伙伴统计数据:', data);
             
             // 更新表格
             const tbody = document.querySelector('#partnerStatsTable tbody');
-            if (!tbody) return;
+            if (!tbody) {
+                console.error('找不到合作伙伴统计表格元素');
+                return;
+            }
             
             if (!data.agentStats || data.agentStats.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无数据</td></tr>';
@@ -1249,10 +1496,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                  '<i class="fas fa-equals" style="color:#7f8c8d"></i>';
                 
                 row.innerHTML = `
-                    <td>${agent.name} (${agent.username})</td>
-                    <td>${agent.licenseCount}</td>
-                    <td>${agent.activeCount}</td>
-                    <td>${agent.todayActivations}</td>
+                    <td>${agent.name || 'unknown'} (${agent.username || 'unknown'})</td>
+                    <td>${agent.licenseCount || 0}</td>
+                    <td>${agent.activeCount || 0}</td>
+                    <td>${agent.todayActivations || 0}</td>
                     <td>${trendIcon}</td>
                 `;
                 tbody.appendChild(row);
@@ -1262,8 +1509,113 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('获取合作伙伴统计数据失败:', error);
             const tbody = document.querySelector('#partnerStatsTable tbody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">数据加载失败</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">数据加载失败: ${error.message}</td></tr>`;
             }
         }
+    }
+
+    // 添加默认JD-FIRST-KEY授权码
+    async function addDefaultLicense() {
+        if (!isAuthenticated) {
+            alert('请先登录');
+            showLoginForm();
+            return;
+            }
+        
+        try {
+            const today = new Date();
+            const oneYearLater = new Date(today);
+            oneYearLater.setFullYear(today.getFullYear() + 1);
+            
+            const licenseData = {
+                licenseKey: 'JD-FIRST-KEY',
+                hotelName: '默认酒店',
+                startDate: today.toISOString().split('T')[0],
+                expiryDate: oneYearLater.toISOString().split('T')[0]
+            };
+            
+            console.log('添加默认授权码:', licenseData);
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
+                method: 'POST',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(licenseData)
+            });
+            
+            if (response.status === 401) {
+                isAuthenticated = false;
+                showLoginForm();
+                return;
+            }
+            
+            if (!response.ok) {
+                console.error('添加默认授权码失败:', response.status);
+                alert('添加默认授权码失败');
+                return;
+            }
+            
+            console.log('默认授权码添加成功');
+            alert('默认授权码添加成功');
+            fetchLicenses();
+        } catch (error) {
+            console.error('添加默认授权码出错:', error);
+            alert('添加默认授权码出错: ' + error.message);
+        }
+    }
+    
+    // 旧版登录函数，保留兼容性
+    async function login(password) {
+        try {
+            const response = await apiFetch(`${apiBaseUrl}/licenses`, {
+                method: 'GET',
+                headers: { 'Authorization': `Basic ${btoa(`:${password}`)}` }
+            });
+            
+            if (response.status === 401) {
+                document.getElementById('loginMessage').textContent = '密码错误，请重试';
+                return false;
+            }
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Login error:', error);
+            document.getElementById('loginMessage').textContent = '登录时发生错误，请重试';
+            return false;
+        }
+    }
+
+    // 添加登录按钮事件监听
+    function setupLoginForm() {
+        if (loginContainer && loginBtn && loginPassword) {
+            // 新版登录表单
+            loginBtn.addEventListener('click', handleLogin);
+            loginPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleLogin();
+                }
+            });
+            return;
+        }
+        
+        // 等待旧版登录表单创建完成
+        setTimeout(() => {
+            // 旧版登录兼容
+            const oldLoginBtn = document.getElementById('loginBtn');
+            const passwordInput = document.getElementById('adminPassword');
+            
+            if (oldLoginBtn && passwordInput) {
+                oldLoginBtn.addEventListener('click', handleLogin);
+                passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleLogin();
+                    }
+                });
+            }
+        }, 100);
     }
 }); 
