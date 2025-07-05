@@ -43,8 +43,13 @@ export default async function handler(req, res) {
     const lastPathPart = pathParts[pathParts.length - 1];
     
     if (lastPathPart === 'me') {
+      console.log('处理/me路径请求，获取当前用户信息');
       const user = getAuthPayload(req);
-      if (!user) return res.status(401).json({ error: '未登录或token无效' });
+      if (!user) {
+        console.log('未登录或token无效');
+        return res.status(401).json({ error: '未登录或token无效' });
+      }
+      console.log('返回当前用户信息:', user);
       return res.status(200).json({ 
         user: { 
           username: user.username, 

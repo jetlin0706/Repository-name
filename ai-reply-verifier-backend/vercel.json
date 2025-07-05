@@ -11,6 +11,7 @@
         { "source": "/", "destination": "/admin/", "permanent": true }
     ],
     "rewrites": [
+        { "source": "/api/admin/accounts/me", "destination": "/api/admin/accounts" },
         { "source": "/api/(.*)", "destination": "/api/$1" }
     ],
     "headers": [
