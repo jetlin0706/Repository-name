@@ -74,14 +74,22 @@ export default async function handler(req, res) {
       
       try {
         const keys = await kv.keys('account:*');
-        console.log(`找到${keys.length}个账号记录`);
+        console.log(`找到${keys.length}个账号记录，keys:`, keys);
         
         for (const key of keys) {
           const raw = await kv.get(key);
-          if (!raw) continue;
+          console.log(`获取到账号数据 ${key}:`, raw);
+          
+          if (!raw) {
+            console.log(`账号 ${key} 数据为空，跳过`);
+            continue;
+          }
+          
           let acc;
           try { 
-            acc = typeof raw === 'string' ? JSON.parse(raw) : raw; 
+            acc = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            console.log(`解析后的账号数据:`, acc);
+            
             // 确保不将admin重复添加到列表中
             if (acc.username !== 'admin') {
               accounts.push({ 
@@ -90,9 +98,12 @@ export default async function handler(req, res) {
                 role: acc.role, 
                 createdAt: acc.createdAt 
               });
+              console.log(`添加账号 ${acc.username} 到列表`);
+            } else {
+              console.log(`跳过admin账号，因为已经添加过了`);
             }
           } catch (e) { 
-            console.error('解析账号数据出错:', e);
+            console.error(`解析账号数据出错 ${key}:`, e);
             continue; 
           }
         }
@@ -101,7 +112,7 @@ export default async function handler(req, res) {
         // 即使出错，依然返回admin账号
       }
       
-      console.log(`返回${accounts.length}个账号`);
+      console.log(`返回${accounts.length}个账号:`, accounts);
       return res.status(200).json({ accounts });
     }
 
