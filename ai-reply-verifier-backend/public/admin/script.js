@@ -648,8 +648,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // 仅管理员可见账号管理和操作日志
         if (currentUser && currentUser.role === 'admin') {
             console.log('当前用户是管理员，显示账号管理和操作日志');
-            // 调用updateAccountCardVisibility来处理账号管理卡片
-            updateAccountCardVisibility();
+            // 显示账号管理卡片
+            if (accountCard) {
+                accountCard.style.display = '';
+                // 确保表单是空的
+                if (addAccountForm) {
+                    addAccountForm.reset();
+                    // 防止浏览器自动填充
+                    setTimeout(() => {
+                        if (newAccountUsername) newAccountUsername.value = '';
+                        if (newAccountName) newAccountName.value = '';
+                        if (newAccountPassword) newAccountPassword.value = '';
+                    }, 100);
+                }
+                // 立即获取账号列表数据
+                console.log('管理员登录，立即获取账号列表');
+                fetchAccounts();
+            }
             
             if (logsCard) logsCard.style.display = '';
             // 管理员显示合作伙伴统计看板
@@ -945,9 +960,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(message);
                 
                 // 在表中显示错误信息
-                const tableBody = accountsTable;
-                if (tableBody) {
-                    tableBody.innerHTML = '';
+                if (accountsTable) {
+                    accountsTable.innerHTML = '';
                     const tr = document.createElement('tr');
                     const td = document.createElement('td');
                     td.colSpan = 5;
@@ -955,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     td.style.textAlign = 'center';
                     td.style.color = 'red';
                     tr.appendChild(td);
-                    tableBody.appendChild(tr);
+                    accountsTable.appendChild(tr);
                 }
                 return;
             }
@@ -964,7 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await resp.json();
             console.log('获取到的账号数据:', data);
             
-            // 直接使用accountsTable，它已经是tbody元素
+            // 检查accountsTable是否存在
             if (!accountsTable) {
                 console.error("未找到accountsTable元素");
                 return;
