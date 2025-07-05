@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (hostname.includes('github.io')) {
         // GitHub Pages环境 - 使用您的实际Vercel部署URL
-        apiBaseUrl = 'https://repository-name-v2.vercel.app/api/admin';
+        apiBaseUrl = 'https://ai-reply-verifier.vercel.app/api/admin';
         console.log('GitHub Pages环境，使用Vercel API:', apiBaseUrl);
     } else if (hostname.includes('vercel.app')) {
         // Vercel环境
@@ -132,36 +132,53 @@ document.addEventListener('DOMContentLoaded', () => {
         return { 'Authorization': `Basic ${encoded}` };
     }
 
-    // 封装fetch，自动处理401
+    // 封装fetch，自动处理401和网络错误
     async function apiFetch(url, options = {}) {
-        try {
-            const headers = options.headers || {};
-            options.headers = { ...headers, ...getAuthHeaders() };
-            
-            console.log(`请求API: ${url}`, options);
-            const resp = await fetch(url, options);
-            console.log(`API响应状态: ${resp.status}`);
-            
-            if (resp.status === 401) {
-                // 清除token
-                localStorage.removeItem('token');
-                jwtToken = null;
-                isAuthenticated = false;
-                currentUser = null;
+        let retries = 2; // 重试次数
+        let lastError = null;
+        
+        while (retries >= 0) {
+            try {
+                const headers = options.headers || {};
+                options.headers = { ...headers, ...getAuthHeaders() };
                 
-                showLoginForm();
-                if (loginMessage) {
-                    loginMessage.textContent = '登录已过期，请重新登录';
-                } else if (document.getElementById('loginMessage')) {
-                    document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
+                console.log(`请求API: ${url}`, options);
+                const resp = await fetch(url, options);
+                console.log(`API响应状态: ${resp.status}`);
+                
+                if (resp.status === 401) {
+                    // 清除token
+                    localStorage.removeItem('token');
+                    jwtToken = null;
+                    isAuthenticated = false;
+                    currentUser = null;
+                    
+                    showLoginForm();
+                    if (loginMessage) {
+                        loginMessage.textContent = '登录已过期，请重新登录';
+                    } else if (document.getElementById('loginMessage')) {
+                        document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
+                    }
+                    throw new Error('401 Unauthorized');
                 }
-                throw new Error('401 Unauthorized');
+                return resp;
+            } catch (error) {
+                console.error(`API请求失败: ${url}`, error);
+                lastError = error;
+                
+                // 只有在网络错误时尝试重试，其他错误直接抛出
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    console.log(`请求失败，剩余重试次数: ${retries}`);
+                    if (retries > 0) {
+                        retries--;
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒后重试
+                        continue;
+                    }
+                }
+                throw error;
             }
-            return resp;
-        } catch (error) {
-            console.error(`API请求失败: ${url}`, error);
-            throw error;
         }
+        throw lastError; // 所有重试都失败了
     }
 
     // 获取仪表盘数据
@@ -620,64 +637,78 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 登录成功后，拉取dashboard数据
     async function loginAndInit(token, user) {
-        jwtToken = token;
-        password = token; // 兼容旧逻辑
-        currentUser = user;
-        isAuthenticated = true;
-        showMainContent();
-        await fetchDashboard();
-        await fetchLicenses();
-        
-        // 显示用户信息
-        const userInfo = document.getElementById('userInfo');
-        const welcomeText = document.getElementById('welcomeText');
-        if (userInfo && welcomeText) {
-            userInfo.style.display = 'flex';
-            welcomeText.textContent = `欢迎，${user.name} (${user.role === 'admin' ? '管理员' : '合作伙伴'})`;
-        }
-        
-        // 添加登出按钮事件
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.onclick = () => {
-                localStorage.removeItem('token');
-                location.reload();
-            };
-        }
-        
-        // 仅管理员可见账号管理和操作日志
-        if (currentUser && currentUser.role === 'admin') {
-            console.log('当前用户是管理员，显示账号管理和操作日志');
-            // 显示账号管理卡片
-            if (accountCard) {
-                accountCard.style.display = '';
-                // 确保表单是空的
-                if (addAccountForm) {
-                    addAccountForm.reset();
-                    // 防止浏览器自动填充
-                    setTimeout(() => {
-                        if (newAccountUsername) newAccountUsername.value = '';
-                        if (newAccountName) newAccountName.value = '';
-                        if (newAccountPassword) newAccountPassword.value = '';
-                    }, 100);
-                }
-                // 立即获取账号列表数据
-                console.log('管理员登录，立即获取账号列表');
-                fetchAccounts();
+        console.log('登录成功，初始化界面...');
+        try {
+            // 设置身份验证状态
+            jwtToken = token;
+            localStorage.setItem('token', token);
+            currentUser = user;
+            isAuthenticated = true;
+            
+            // 显示用户信息
+            const userInfo = document.getElementById('userInfo');
+            const welcomeText = document.getElementById('welcomeText');
+            
+            if (userInfo) userInfo.style.display = 'flex';
+            if (welcomeText) {
+                const roleName = user.role === 'admin' ? '超级管理员' : '合作伙伴';
+                welcomeText.textContent = `欢迎回来，${user.name || user.username}（${roleName}）`;
             }
             
-            if (logsCard) logsCard.style.display = '';
-            // 管理员显示合作伙伴统计看板
-            renderPartnerStatsCard(true);
-        } else {
-            // 合作伙伴不显示账号管理和日志
-            console.log('当前用户不是管理员，隐藏账号管理和操作日志');
-            if (accountCard) accountCard.style.display = 'none';
-            if (logsCard) logsCard.style.display = 'none';
-            renderPartnerStatsCard(false);
+            // 添加登出按钮事件
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.onclick = () => {
+                    localStorage.removeItem('token');
+                    location.reload();
+                };
+            }
+            
+            // 管理员显示账号管理卡片
+            console.log('当前用户角色:', user.role);
+            updateAccountCardVisibility();
+            
+            // 获取数据
+            await Promise.all([
+                fetchLicenses(),
+                fetchDashboard()
+            ]);
+            
+            // 显示主要内容
+            showMainContent();
+            
+            // 管理员显示操作日志和合作伙伴数据看板
+            if (user.role === 'admin') {
+                console.log('显示管理员特有功能');
+                showLogsCard(true);
+                // 确保合作伙伴统计看板正确初始化
+                renderPartnerStatsCard(true);
+                try {
+                    const periodSelector = document.getElementById('statsPeriod');
+                    if (periodSelector) {
+                        console.log('获取合作伙伴统计数据，周期:', periodSelector.value);
+                        await fetchPartnerStats(periodSelector.value);
+                    } else {
+                        console.log('未找到统计周期选择器，使用默认周期');
+                        await fetchPartnerStats('month');
+                    }
+                } catch (statsError) {
+                    console.error('获取合作伙伴统计数据失败:', statsError);
+                }
+            } else {
+                // 非管理员不显示操作日志和合作伙伴统计
+                showLogsCard(false);
+                renderPartnerStatsCard(false);
+            }
+            
+            // 非管理员显示重置密码按钮
+            renderSelfResetPwdBtn();
+            
+            console.log('界面初始化完成');
+        } catch (error) {
+            console.error('初始化界面失败:', error);
+            alert('初始化界面失败: ' + error.message);
         }
-        
-        renderSelfResetPwdBtn();
     }
     
     // 初始化表单和按钮
@@ -960,8 +991,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(message);
                 
                 // 在表中显示错误信息
-                if (accountsTable) {
-                    accountsTable.innerHTML = '';
+                const tableBody = accountsTable;
+                if (tableBody) {
+                    tableBody.innerHTML = '';
                     const tr = document.createElement('tr');
                     const td = document.createElement('td');
                     td.colSpan = 5;
@@ -969,7 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     td.style.textAlign = 'center';
                     td.style.color = 'red';
                     tr.appendChild(td);
-                    accountsTable.appendChild(tr);
+                    tableBody.appendChild(tr);
                 }
                 return;
             }
@@ -978,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await resp.json();
             console.log('获取到的账号数据:', data);
             
-            // 检查accountsTable是否存在
+            // 直接使用accountsTable，它已经是tbody元素
             if (!accountsTable) {
                 console.error("未找到accountsTable元素");
                 return;
@@ -1325,16 +1357,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // 获取合作伙伴统计数据
     async function fetchPartnerStats(period = 'month') {
         try {
+            console.log(`获取合作伙伴统计数据，周期: ${period}，URL: ${apiBaseUrl}/dashboard?period=${period}`);
             const resp = await apiFetch(`${apiBaseUrl}/dashboard?period=${period}`);
+            
             if (!resp.ok) {
-                throw new Error('获取数据失败');
+                console.error('获取合作伙伴统计数据失败:', resp.status, resp.statusText);
+                throw new Error(`获取数据失败: ${resp.status} ${resp.statusText}`);
             }
             
             const data = await resp.json();
+            console.log('获取到的合作伙伴统计数据:', data);
             
             // 更新表格
             const tbody = document.querySelector('#partnerStatsTable tbody');
-            if (!tbody) return;
+            if (!tbody) {
+                console.error('找不到合作伙伴统计表格元素');
+                return;
+            }
             
             if (!data.agentStats || data.agentStats.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无数据</td></tr>';
@@ -1351,10 +1390,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                  '<i class="fas fa-equals" style="color:#7f8c8d"></i>';
                 
                 row.innerHTML = `
-                    <td>${agent.name} (${agent.username})</td>
-                    <td>${agent.licenseCount}</td>
-                    <td>${agent.activeCount}</td>
-                    <td>${agent.todayActivations}</td>
+                    <td>${agent.name || 'unknown'} (${agent.username || 'unknown'})</td>
+                    <td>${agent.licenseCount || 0}</td>
+                    <td>${agent.activeCount || 0}</td>
+                    <td>${agent.todayActivations || 0}</td>
                     <td>${trendIcon}</td>
                 `;
                 tbody.appendChild(row);
@@ -1364,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('获取合作伙伴统计数据失败:', error);
             const tbody = document.querySelector('#partnerStatsTable tbody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">数据加载失败</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">数据加载失败: ${error.message}</td></tr>`;
             }
         }
     }
