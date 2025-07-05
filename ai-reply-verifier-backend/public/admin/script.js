@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('初始化管理后台脚本...');
     
+    // 立即检查登录状态
+    checkLoginStatus();
+    
     // 配置API基础URL
     const hostname = window.location.hostname;
     let apiBaseUrl;
@@ -59,6 +62,69 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.querySelector('.container');
     // 创建旧版登录容器的引用
     let oldLoginContainer = null;
+
+    // 登录状态检查函数
+    async function checkLoginStatus() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.log('未检测到登录token，显示登录表单');
+            showLoginForm();
+            return false;
+        }
+
+        try {
+            // 验证token有效性
+            const response = await fetch(`${apiBaseUrl}/verify-token`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Token验证失败');
+            }
+
+            const data = await response.json();
+            if (data.valid) {
+                console.log('Token有效，保持登录状态');
+                currentUser = data.user;
+                showMainContent();
+                updateUserInfo();
+                return true;
+            } else {
+                throw new Error('Token已过期');
+            }
+        } catch (error) {
+            console.error('Token验证出错:', error);
+            localStorage.removeItem('token');
+            showLoginForm();
+            return false;
+        }
+    }
+
+    // 更新用户信息显示
+    function updateUserInfo() {
+        const userInfo = document.getElementById('userInfo');
+        const welcomeText = document.getElementById('welcomeText');
+        if (currentUser && userInfo && welcomeText) {
+            userInfo.style.display = 'flex';
+            welcomeText.textContent = `欢迎，${currentUser.name || currentUser.username}`;
+        }
+    }
+
+    // 登出函数
+    function logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('mock_token');
+        currentUser = null;
+        showLoginForm();
+    }
+
+    // 添加登出按钮事件监听
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
 
     // 隐藏主要内容，显示登录表单
     function showLoginForm() {
@@ -599,96 +665,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleLogin() {
-        console.log('开始登录流程...');
-        const username = loginUsername ? loginUsername.value : document.getElementById('loginUsername')?.value;
-        const password = loginPassword ? loginPassword.value : document.getElementById('loginPassword')?.value;
-        
-        if (!username || !password) {
-            if (loginMessage) loginMessage.textContent = '请输入用户名和密码';
+        if (!loginUsername || !loginPassword) {
+            console.error('登录表单元素未找到');
             return;
         }
-        
-        const btn = loginBtn || document.getElementById('loginBtn');
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '登录中...';
-        
-        if (loginMessage) loginMessage.textContent = '';
-        
+
+        const username = loginUsername.value.trim();
+        const password = loginPassword.value.trim();
+
+        // 输入验证
+        if (!username || !password) {
+            loginMessage.textContent = '请输入用户名和密码';
+            loginMessage.style.display = 'block';
+            return;
+        }
+
+        // 禁用登录按钮，显示加载状态
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+        loginMessage.style.display = 'none';
+
         try {
-            console.log(`准备发送登录请求到: ${apiBaseUrl}/login`);
-            console.log('登录参数:', { username, password: '***' });
-            
-            // 先测试Worker是否可访问
-            try {
-                const testResp = await fetch('https://ai-reply-proxy-new.jetlin0706.workers.dev/', { 
-                    method: 'GET',
-                    mode: 'cors'
-                });
-                console.log('Worker测试响应:', await testResp.text());
-            } catch (testErr) {
-                console.error('Worker测试失败:', testErr);
-                throw new Error('无法连接到API代理服务');
+            const response = await fetch(`${apiBaseUrl}/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username,
+                    password
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || '登录失败，请检查用户名和密码');
             }
-            
-            // 尝试正常登录
-            try {
-                const response = await fetch(`${apiBaseUrl}/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                console.log('登录响应状态:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('登录失败:', errorText);
-                    throw new Error('API登录失败');
-                }
-                
-                const data = await response.json();
-                console.log('登录成功，响应数据:', data);
-                
-                if (data.token) {
-                    await loginAndInit(data.token, data.user);
-                    return;
-                } else {
-                    console.error('登录响应缺少token');
-                    throw new Error('登录成功但缺少token');
-                }
-            } catch (apiError) {
-                console.error('API登录失败，尝试使用备用登录:', apiError);
-                
-                // 备用登录方案：仅用于演示和开发环境
-                if (username === 'admin' && password === 'admin123') {
-                    console.log('使用备用登录成功');
-                    
-                    // 创建模拟token和用户
-                    const mockToken = 'mock_token_' + Math.random().toString(36).substring(2);
-                    const mockUser = {
-                        username: 'admin',
-                        name: '超级管理员',
-                        role: 'admin'
-                    };
-                    
-                    // 存储模拟token
-                    localStorage.setItem('mock_token', mockToken);
-                    
-                    await loginAndInit(mockToken, mockUser);
-                    return;
-                } else {
-                    throw new Error('API登录失败，备用登录也失败');
-                }
+
+            if (!data.token) {
+                throw new Error('服务器响应错误：未返回token');
             }
+
+            // 保存token和用户信息
+            localStorage.setItem('token', data.token);
+            currentUser = data.user;
+
+            // 更新界面
+            loginContainer.style.display = 'none';
+            showMainContent();
+            updateUserInfo();
+
+            // 初始化数据
+            await Promise.all([
+                fetchDashboard(),
+                fetchLicenses(),
+                data.user.role === 'admin' ? fetchAccounts() : null
+            ].filter(Boolean));
+
+            // 根据用户角色更新界面
+            updateAccountCardVisibility();
+            showLogsCard(data.user.role === 'admin');
+            renderPartnerStatsCard(data.user.role === 'admin');
+
         } catch (error) {
-            console.error('登录过程出错:', error);
-            if (loginMessage) loginMessage.textContent = '登录请求失败: ' + error.message;
+            console.error('登录错误:', error);
+            loginMessage.textContent = error.message || '登录失败，请稍后重试';
+            loginMessage.style.display = 'block';
         } finally {
-            btn.disabled = false;
-            btn.textContent = originalText;
+            // 恢复登录按钮状态
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 登录';
+            // 清空密码输入
+            loginPassword.value = '';
         }
     }
     
