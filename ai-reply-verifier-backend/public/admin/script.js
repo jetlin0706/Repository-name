@@ -330,33 +330,33 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 正常API请求处理
         while (retries >= 0) {
-            try {
-                const headers = options.headers || {};
-                options.headers = { ...headers, ...getAuthHeaders() };
-                
-                console.log(`请求API: ${url}`, options);
-                const resp = await fetch(url, options);
-                console.log(`API响应状态: ${resp.status}`);
-                
-                if (resp.status === 401) {
-                    // 清除token
-                    localStorage.removeItem('token');
+        try {
+            const headers = options.headers || {};
+            options.headers = { ...headers, ...getAuthHeaders() };
+            
+            console.log(`请求API: ${url}`, options);
+            const resp = await fetch(url, options);
+            console.log(`API响应状态: ${resp.status}`);
+            
+            if (resp.status === 401) {
+                // 清除token
+                localStorage.removeItem('token');
                     localStorage.removeItem('mock_token');
-                    jwtToken = null;
-                    isAuthenticated = false;
-                    currentUser = null;
-                    
-                    showLoginForm();
-                    if (loginMessage) {
-                        loginMessage.textContent = '登录已过期，请重新登录';
-                    } else if (document.getElementById('loginMessage')) {
-                        document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
-                    }
-                    throw new Error('401 Unauthorized');
+                jwtToken = null;
+                isAuthenticated = false;
+                currentUser = null;
+                
+                showLoginForm();
+                if (loginMessage) {
+                    loginMessage.textContent = '登录已过期，请重新登录';
+                } else if (document.getElementById('loginMessage')) {
+                    document.getElementById('loginMessage').textContent = '登录已过期，请重新登录';
                 }
-                return resp;
-            } catch (error) {
-                console.error(`API请求失败: ${url}`, error);
+                throw new Error('401 Unauthorized');
+            }
+            return resp;
+        } catch (error) {
+            console.error(`API请求失败: ${url}`, error);
                 lastError = error;
                 
                 // 只有在网络错误时尝试重试，其他错误直接抛出
@@ -368,8 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         continue;
                     }
                 }
-                throw error;
-            }
+            throw error;
+        }
         }
         throw lastError; // 所有重试都失败了
     }
@@ -669,22 +669,22 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('登录表单元素未找到');
             return;
         }
-
-        const username = loginUsername.value.trim();
-        const password = loginPassword.value.trim();
-
+        
+            const username = loginUsername.value.trim();
+            const password = loginPassword.value.trim();
+            
         // 输入验证
-        if (!username || !password) {
-            loginMessage.textContent = '请输入用户名和密码';
+            if (!username || !password) {
+                loginMessage.textContent = '请输入用户名和密码';
             loginMessage.style.display = 'block';
-            return;
-        }
-
+                return;
+            }
+            
         // 禁用登录按钮，显示加载状态
-        loginBtn.disabled = true;
+            loginBtn.disabled = true;
         loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
         loginMessage.style.display = 'none';
-
+            
         try {
             const response = await fetch(`${apiBaseUrl}/login`, {
                 method: 'POST',
@@ -705,7 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!data.token) {
                 throw new Error('服务器响应错误：未返回token');
-            }
+                }
 
             // 保存token和用户信息
             localStorage.setItem('token', data.token);
@@ -713,7 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 更新界面
             loginContainer.style.display = 'none';
-            showMainContent();
+                showMainContent();
             updateUserInfo();
 
             // 初始化数据
@@ -738,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 登录';
             // 清空密码输入
             loginPassword.value = '';
-        }
+                    }
     }
     
     // 登录成功后，拉取dashboard数据
@@ -746,30 +746,30 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('登录成功，初始化界面...');
         try {
             // 设置身份验证状态
-            jwtToken = token;
+        jwtToken = token;
             localStorage.setItem('token', token);
-            currentUser = user;
-            isAuthenticated = true;
-            
-            // 显示用户信息
-            const userInfo = document.getElementById('userInfo');
-            const welcomeText = document.getElementById('welcomeText');
+        currentUser = user;
+        isAuthenticated = true;
+        
+        // 显示用户信息
+        const userInfo = document.getElementById('userInfo');
+        const welcomeText = document.getElementById('welcomeText');
             
             if (userInfo) userInfo.style.display = 'flex';
             if (welcomeText) {
                 const roleName = user.role === 'admin' ? '超级管理员' : '合作伙伴';
                 welcomeText.textContent = `欢迎回来，${user.name || user.username}（${roleName}）`;
-            }
-            
-            // 添加登出按钮事件
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) {
-                logoutBtn.onclick = () => {
-                    localStorage.removeItem('token');
-                    location.reload();
-                };
-            }
-            
+        }
+        
+        // 添加登出按钮事件
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.onclick = () => {
+                localStorage.removeItem('token');
+                location.reload();
+            };
+        }
+        
             // 管理员显示账号管理卡片
             console.log('当前用户角色:', user.role);
             updateAccountCardVisibility();
@@ -788,13 +788,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('显示管理员特有功能');
                 showLogsCard(true);
                 // 确保合作伙伴统计看板正确初始化
-                renderPartnerStatsCard(true);
+            renderPartnerStatsCard(true);
                 try {
                     const periodSelector = document.getElementById('statsPeriod');
                     if (periodSelector) {
                         console.log('获取合作伙伴统计数据，周期:', periodSelector.value);
                         await fetchPartnerStats(periodSelector.value);
-                    } else {
+        } else {
                         console.log('未找到统计周期选择器，使用默认周期');
                         await fetchPartnerStats('month');
                     }
@@ -804,11 +804,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // 非管理员不显示操作日志和合作伙伴统计
                 showLogsCard(false);
-                renderPartnerStatsCard(false);
-            }
-            
+            renderPartnerStatsCard(false);
+        }
+        
             // 非管理员显示重置密码按钮
-            renderSelfResetPwdBtn();
+        renderSelfResetPwdBtn();
             
             console.log('界面初始化完成');
         } catch (error) {
@@ -1520,7 +1520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('请先登录');
             showLoginForm();
             return;
-        }
+            }
         
         try {
             const today = new Date();
