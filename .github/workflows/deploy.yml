@@ -1,24 +1,60 @@
-name: Deploy to GitHub Pages
+# 工作流的名称
+name: Deploy to Tencent Cloud Server
 
+# 触发条件：当有代码 push 到 gh-pages-deploy 分支时触发
 on:
   push:
     branches:
-      - main
+      - gh-pages-deploy
 
+# 需要执行的任务
 jobs:
   deploy:
+    # 任务运行的虚拟环境
     runs-on: ubuntu-latest
+
+    # 任务步骤
     steps:
-      - uses: actions/checkout@v2
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
+      # 第一步：打印一条消息，方便调试
+      - name: Log starting deployment
+        run: echo "Starting deployment to Tencent Cloud..."
+
+      # 第二步：通过 SSH 连接到您的服务器并执行命令
+      - name: SSH and Deploy
+        # 使用一个非常流行的、专门用于SSH操作的Action
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          node-version: '16'
-          
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          exclude_assets: '.github,api' 
+          # 您的服务器IP地址 (从Secrets中读取)
+          host: ${{ secrets.TENCENT_SERVER_HOST }}
+          # 您的服务器登录用户名 (从Secrets中读取)
+          username: ${{ secrets.TENCENT_SERVER_USERNAME }}
+          # 您的服务器登录密码 (从Secrets中读取)
+          password: ${{ secrets.TENCENT_SERVER_PASSWORD }}
+          # 在服务器上执行的脚本
+          script: |
+            echo "--- Navigating to project directory ---"
+            cd /home/ubuntu/repository-name-v2/ai-reply-verifier-backend
+            
+            echo "--- Pulling latest code from GitHub ---"
+            git pull origin gh-pages-deploy
+            
+            echo "--- Installing backend dependencies ---"
+            npm install
+            
+            echo "--- Renaming server.js to index.js ---"
+            mv server.js index.js
+            
+            echo "--- Restarting application with PM2 ---"
+            pm2 delete ai-reply-backend
+            pm2 start index.js --name ai-reply-backend
+            
+            echo "--- Saving PM2 process list ---"
+            pm2 save
+            
+            echo "--- Checking service status ---"
+            pm2 status
+            
+            echo "--- Viewing PM2 logs for ai-reply-backend ---"
+            pm2 logs ai-reply-backend
+            
+            echo "--- Deployment to Windows Server successful! ---" 

@@ -1,61 +1,29 @@
-import { kv } from '@vercel/kv';
-import jwt from 'jsonwebtoken';
+import express from 'express';
+import Redis from 'ioredis';
+import auth from '../middleware/auth.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ai-reply-secret';
-const LOG_KEY = 'logs';
-const LOG_MAX = 1000; // 最多保留1000条
+const router = express.Router();
+const redis = new Redis(process.env.REDIS_URL);
 
-function getAuthPayload(req) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return null;
-  try {
-    const token = auth.replace('Bearer ', '');
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
-    return null;
-  }
-}
-
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
-  const user = getAuthPayload(req);
-  if (!user) return res.status(401).json({ error: '未登录或token无效' });
-
-  if (req.method === 'POST') {
-    // 写入日志
-    const { type, detail } = req.body;
-    if (!type) return res.status(400).json({ error: '缺少type' });
-    const log = {
-      username: user.username,
-      role: user.role,
-      type,
-      detail: detail || '',
-      time: new Date().toISOString()
-    };
-    await kv.lpush(LOG_KEY, JSON.stringify(log));
-    await kv.ltrim(LOG_KEY, 0, LOG_MAX - 1); // 保留最新1000条
-    return res.status(200).json({ message: '日志写入成功' });
-  }
-
-  if (req.method === 'GET') {
-    // 分页查询日志
-    const { page = 1, pageSize = 20 } = req.query;
-    const start = (parseInt(page) - 1) * parseInt(pageSize);
-    const end = start + parseInt(pageSize) - 1;
-    const logsRaw = await kv.lrange(LOG_KEY, start, end);
-    let logs = logsRaw.map(str => { try { return JSON.parse(str); } catch { return null; } }).filter(Boolean);
-    // 代理商只看自己
-    if (user.role !== 'admin') {
-      logs = logs.filter(l => l.username === user.username);
+// [GET] /api/admin/logs - 获取操作日志
+router.get('/', auth, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: '无权访问' });
     }
-    return res.status(200).json({ logs });
-  }
+    try {
+        const logs = await redis.lrange('logs', 0, -1);
+        const parsedLogs = logs.map(log => {
+            try {
+                return JSON.parse(log);
+            } catch {
+                return { error: 'Invalid log entry' };
+            }
+        });
+        res.status(200).json(parsedLogs);
+    } catch (error) {
+        console.error('获取日志失败:', error);
+        res.status(500).json({ message: '服务器内部错误' });
+    }
+});
 
-  res.setHeader('Allow', ['GET', 'POST', 'OPTIONS']);
-  return res.status(405).end(`Method ${req.method} Not Allowed`);
-} 
+export default router; 
