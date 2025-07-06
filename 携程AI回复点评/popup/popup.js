@@ -2,206 +2,165 @@
  * 携程/美团 AI回复助手弹出面板脚本
  * @version 7.0.0 (引入授权码机制)
  */
-document.addEventListener('DOMContentLoaded', async () => {
-    // --- 常量定义 ---
-    // 将占位符URL替换为实际部署的URL
-    const VERIFIER_URL = 'https://ai-reply-proxy-new.jetlin0706.workers.dev/api/verify';
-    
-    // --- DOM元素获取 ---
-    const featureEnabledSwitch = document.getElementById('featureEnabled');
-    const licensePanel = document.getElementById('license-panel');
-    const settingsPanel = document.getElementById('settings-panel');
-    const saveButton = document.getElementById('saveButton');
-    const statusDiv = document.getElementById('status');
+document.addEventListener('DOMContentLoaded', function () {
+    // --- DOM 元素获取 ---
     const licenseKeyInput = document.getElementById('licenseKey');
-    const activateButton = document.getElementById('activateButton');
-    const inputs = ['hotelName', 'hotelPhone', 'mustInclude'];
-    
-    function log(message) {
-        console.log(`[AI助手-弹窗] ${message}`);
-    }
-    
-    log("弹出面板已加载 (v7.0.0)");
-    
-    // --- 主逻辑 ---
-    
-    // 初始化加载
-    await initializeApp();
-    
-    // --- 事件监听 ---
-    
-    // 功能总开关
-    featureEnabledSwitch.addEventListener('change', handleFeatureToggle);
-    
-    // 保存设置按钮
-    saveButton.addEventListener('click', saveSettings);
-    
-    // 激活授权码按钮
-    activateButton.addEventListener('click', handleActivation);
-    
-    // 语气按钮选中逻辑
-    const toneBtns = document.querySelectorAll('.tone-btn');
-    toneBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            toneBtns.forEach(b => b.classList.remove('selected'));
-            this.classList.add('selected');
-            // 存储选中的语气到本地
-            chrome.storage.local.set({ selectedTone: this.dataset.tone });
-        });
-    });
-    // 初始化时恢复选中态
-    chrome.storage.local.get(['selectedTone'], data => {
-        if (data.selectedTone) {
-            const btn = document.querySelector(`.tone-btn[data-tone="${data.selectedTone}"]`);
-            if (btn) btn.classList.add('selected');
+    const activateButton = document.getElementById('activate');
+    const statusMessage = document.getElementById('statusMessage');
+    const saveButton = document.getElementById('saveButton');
+    const hotelNameInput = document.getElementById('hotelName');
+    const hotelPhoneInput = document.getElementById('hotelPhone');
+    const mustIncludeInput = document.getElementById('mustInclude');
+    const forbiddenWordsInput = document.getElementById('forbiddenWords');
+    const maxLengthInput = document.getElementById('maxLength');
+    const enableToggle = document.getElementById('enable-ai-toggle');
+    const settingsPanel = document.getElementById('settings-panel');
+
+    // --- 安全检查：确保所有关键元素都存在 ---
+    if (!licenseKeyInput || !activateButton || !statusMessage || !saveButton || !settingsPanel) {
+        console.error('AI助手-弹窗: 一个或多个关键UI元素未在HTML中找到，脚本无法继续执行。');
+        if (statusMessage) {
+            statusMessage.textContent = 'UI组件加载错误，请联系技术支持。';
+            statusMessage.className = 'status-message error';
         }
-    });
+        return; // 提前退出，防止后续代码报错
+    }
     
     // --- 函数定义 ---
-    
-    async function initializeApp() {
-        try {
-            const data = await chrome.storage.local.get(['enabled', 'isActivated', 'licenseKey', ...inputs]);
-            log(`加载本地数据: ${JSON.stringify(data)}`);
-            
-            const isEnabled = data.enabled !== false; // 默认为true
-            const isActivated = data.isActivated === true;
-            
-            // 更新UI状态
-            featureEnabledSwitch.checked = isEnabled;
-            licenseKeyInput.value = data.licenseKey || '';
-            updateUiLockState(isActivated);
-            
-            // 加载用户设置
-            inputs.forEach(id => {
-                const element = document.getElementById(id);
-                if (element && data[id]) {
-                    element.value = data[id];
-                }
-            });
-            
-            toggleSettingsPanel(isEnabled);
-            
-        } catch (err) {
-            log("初始化失败: " + err.message);
-            showStatus('加载设置失败', 'error');
+
+    /**
+     * 显示状态信息
+     * @param {string} message - 要显示的消息
+     * @param {'success'|'error'|'info'} type - 消息类型
+     */
+    function showStatus(message, type = 'info') {
+        statusMessage.textContent = message;
+        statusMessage.className = `status-message ${type}`;
+        if (type !== 'info') {
+            setTimeout(() => {
+                statusMessage.textContent = '';
+                statusMessage.className = 'status-message';
+            }, 4000);
         }
     }
-    
+
+    /**
+     * 更新UI的锁定状态
+     * @param {boolean} isActivated - 是否已激活
+     */
     function updateUiLockState(isActivated) {
         if (isActivated) {
-            licensePanel.style.display = 'none'; // 激活后隐藏授权区域
-            settingsPanel.classList.remove('disabled');
-            saveButton.disabled = false;
-            showStatus('授权有效，功能已激活', 'success');
+            settingsPanel.classList.remove('locked');
+            licenseKeyInput.disabled = true;
+            activateButton.disabled = true;
+            activateButton.textContent = '已激活';
         } else {
-            licensePanel.style.display = 'block';
-            settingsPanel.classList.add('disabled');
-            saveButton.disabled = true;
-        }
-    }
-    
-    function toggleSettingsPanel(isEnabled) {
-        // 这个函数现在只控制总开关的效果，不控制锁定
-        if (isEnabled) {
-            settingsPanel.style.opacity = '1';
-            saveButton.style.opacity = '1';
-        } else {
-            settingsPanel.style.opacity = '0.5';
-            saveButton.style.opacity = '0.5';
-        }
-    }
-    
-    async function handleFeatureToggle() {
-        const isEnabled = featureEnabledSwitch.checked;
-        log(`功能开关切换: ${isEnabled ? '启用' : '禁用'}`);
-        
-        toggleSettingsPanel(isEnabled);
-        
-        try {
-            await chrome.storage.local.set({ enabled: isEnabled });
-            
-            // 通知所有相关标签页
-            const tabs = await chrome.tabs.query({ url: ["*://*.ctrip.com/*", "*://*.meituan.com/*"] });
-            for (const tab of tabs) {
-                try {
-                    await chrome.tabs.sendMessage(tab.id, { action: 'statusChanged', enabled: isEnabled });
-                } catch (e) {
-                    log(`无法向标签页 ${tab.id} 发送消息: ${e.message}`);
-                }
-            }
-            showStatus(isEnabled ? 'AI功能已启用' : 'AI功能已禁用', 'info');
-        } catch (err) {
-            log("处理开关切换失败: " + err.message);
-            showStatus('更新设置失败', 'error');
-        }
-    }
-    
-    async function handleActivation() {
-        const key = licenseKeyInput.value.trim();
-        if (!key) {
-            showStatus('请输入授权码', 'error');
-            return;
-        }
-        
-        activateButton.disabled = true;
-        activateButton.textContent = '验证中...';
-        showStatus('正在连接服务器验证授权码...', 'info');
-        
-        try {
-            const response = await fetch(VERIFIER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ licenseKey: key })
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok && result.valid) {
-                await chrome.storage.local.set({ isActivated: true, licenseKey: key });
-                updateUiLockState(true);
-                log(`授权码 ${key} 验证成功`);
-                showStatus('授权码验证成功', 'success');
-            } else {
-                await chrome.storage.local.set({ isActivated: false });
-                showStatus(result.message || '授权码无效或已过期，请重试', 'error');
-                log(`授权码 ${key} 验证失败: ${result.message || response.status}`);
-            }
-        } catch (error) {
-            log(`验证请求失败: ${error.message}`);
-            showStatus('验证失败，请检查网络连接或联系管理员', 'error');
-        } finally {
+            settingsPanel.classList.add('locked');
+            licenseKeyInput.disabled = false;
             activateButton.disabled = false;
             activateButton.textContent = '激活';
         }
     }
-    
-    async function saveSettings() {
-        try {
-            const settings = {};
-            inputs.forEach(id => {
-                const element = document.getElementById(id);
-                if (element) {
-                    settings[id] = element.value.trim();
-                }
-            });
-            
-            log("保存设置: " + JSON.stringify(settings));
-            await chrome.storage.local.set(settings);
-            
-            showStatus('设置已保存', 'success');
-        } catch (err) {
-            log("保存设置失败: " + err.message);
-            showStatus('保存设置失败，请重试', 'error');
+
+    /**
+     * 处理激活逻辑
+     */
+    function handleActivation() {
+        const licenseKey = licenseKeyInput.value.trim();
+        if (!licenseKey) {
+            showStatus('请输入授权码', 'error');
+            return;
         }
+
+        console.log('开始激活流程，授权码:', licenseKey);
+        activateButton.disabled = true;
+        activateButton.textContent = '正在激活...';
+        showStatus('正在连接服务器验证授权码...', 'info');
+
+        chrome.runtime.sendMessage({ action: 'verify-license', key: licenseKey }, (response) => {
+            console.log('收到验证响应:', response);
+            
+            if (chrome.runtime.lastError) {
+                console.error('验证过程出错:', chrome.runtime.lastError);
+                showStatus(`验证出错: ${chrome.runtime.lastError.message}`, 'error');
+                activateButton.disabled = false;
+                activateButton.textContent = '激活';
+                return;
+            }
+            
+            if (response && response.valid) {
+                console.log('验证成功，正在保存状态');
+                chrome.storage.local.set({ 
+                    isActivated: true, 
+                    licenseKey: licenseKey,
+                    hotelName: response.hotelName || ''
+                }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('保存状态出错:', chrome.runtime.lastError);
+                        showStatus(`保存状态出错: ${chrome.runtime.lastError.message}`, 'error');
+                        activateButton.disabled = false;
+                        activateButton.textContent = '激活';
+                        return;
+                    }
+                    
+                    console.log('激活成功完成');
+                    showStatus('激活成功！', 'success');
+                    updateUiLockState(true);
+
+                    // 自动填充酒店名称
+                    if(hotelNameInput && response.hotelName) {
+                        hotelNameInput.value = response.hotelName;
+                    }
+                });
+            } else {
+                console.error('验证失败:', response);
+                showStatus(response?.error || response?.message || '验证失败，请检查网络或联系管理员', 'error');
+                activateButton.disabled = false;
+                activateButton.textContent = '激活';
+                updateUiLockState(false);
+            }
+        });
     }
     
-    function showStatus(message, type = 'info') {
-        statusDiv.textContent = message;
-        statusDiv.className = `status ${type}`;
-        setTimeout(() => {
-            statusDiv.textContent = '';
-            statusDiv.className = 'status';
-        }, 5000); // 延长显示时间以便用户看到
+    /**
+     * 保存设置
+     */
+    function saveSettings() {
+        const settings = {
+            enabled: enableToggle ? enableToggle.checked : true,
+            hotelName: hotelNameInput ? hotelNameInput.value : '',
+            hotelPhone: hotelPhoneInput ? hotelPhoneInput.value : '',
+            mustInclude: mustIncludeInput ? mustIncludeInput.value : '',
+            forbiddenWords: forbiddenWordsInput ? forbiddenWordsInput.value : ''
+        };
+        chrome.storage.local.set({ settings: settings }, () => {
+            showStatus('设置已保存！', 'success');
+        });
     }
+
+    // --- 初始化逻辑 ---
+
+    // 1. 添加事件监听器
+    activateButton.addEventListener('click', handleActivation);
+    saveButton.addEventListener('click', saveSettings);
+
+    // 2. 加载初始状态和设置
+    chrome.storage.local.get(['isActivated', 'licenseKey', 'settings'], function (data) {
+        // 更新激活状态和UI
+        const isActivated = data.isActivated || false;
+        updateUiLockState(isActivated);
+        if (isActivated && data.licenseKey) {
+            licenseKeyInput.value = data.licenseKey;
+        }
+
+        // 加载用户设置
+        if (data.settings) {
+            if (enableToggle) enableToggle.checked = data.settings.enabled !== false;
+            if (hotelNameInput) hotelNameInput.value = data.settings.hotelName || '';
+            if (hotelPhoneInput) hotelPhoneInput.value = data.settings.hotelPhone || '';
+            if (mustIncludeInput) mustIncludeInput.value = data.settings.mustInclude || '';
+            if (forbiddenWordsInput) forbiddenWordsInput.value = data.settings.forbiddenWords || '';
+            if (maxLengthInput) maxLengthInput.value = data.settings.maxLength || '';
+        }
+    });
 }); 

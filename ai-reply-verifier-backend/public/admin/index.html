@@ -4,187 +4,138 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI点评回复助手管理系统</title>
-    <script>
-        // 动态设置base标签
-        if (window.location.hostname.includes('github.io')) {
-            document.write('<base href="/repository-name-v2/">');
-        }
-    </script>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header class="main-header">
-            <div class="logo">
-                <i class="fas fa-robot"></i>
-                <h1>AI点评回复助手管理系统</h1>
+
+    <!-- 登录容器，默认显示 -->
+    <div id="loginContainer" class="container">
+        <div class="login-box">
+            <h2>AI点评回复助手管理系统</h2>
+            <div class="form-group">
+                <input type="text" id="loginUsername" placeholder="用户名" required>
             </div>
-            <div id="userInfo" class="user-info" style="display:none;">
-                <span id="welcomeText"></span>
-                <button id="logoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> 退出</button>
+            <div class="form-group">
+                <input type="password" id="loginPassword" placeholder="密码" required>
+            </div>
+            <button id="loginBtn" class="btn">登录</button>
+            <p id="loginMessage" class="message"></p>
+        </div>
+    </div>
+
+    <!-- 主内容区域，默认隐藏 -->
+    <div id="mainContent" class="hidden">
+        <header class="header">
+            <div class="header-title">AI点评回复助手管理系统</div>
+            <div id="userInfo" class="user-info hidden">
+                <span id="usernameDisplay"></span> (<span id="userRoleDisplay"></span>)
+                <button id="logoutBtn" class="btn-logout">退出登录</button>
             </div>
         </header>
 
-        <!-- 登录表单（用户名+密码） -->
-        <div id="loginContainer" class="login-container card" style="display:none;">
-            <div class="login-header">
-                <i class="fas fa-lock"></i>
-                <h2>账号登录</h2>
-            </div>
-            <div class="form-group">
-                <label for="loginUsername"><i class="fas fa-user"></i> 用户名</label>
-                <input type="text" id="loginUsername" placeholder="请输入用户名">
-            </div>
-            <div class="form-group">
-                <label for="loginPassword"><i class="fas fa-key"></i> 密码</label>
-                <input type="password" id="loginPassword" placeholder="请输入密码">
-            </div>
-            <button id="loginBtn"><i class="fas fa-sign-in-alt"></i> 登录</button>
-            <p id="loginMessage" class="error-message"></p>
-        </div>
-
-        <div id="dashboard" class="card">
-            <h2><i class="fas fa-chart-line"></i> 数据概览</h2>
-            <div class="stats-container">
-                <div class="stat-item">
-                    <i class="fas fa-key stat-icon"></i>
-                    <h3>总授权数</h3>
-                    <p id="totalLicenses">0</p>
-                </div>
-                <div class="stat-item">
-                    <i class="fas fa-check-circle stat-icon"></i>
-                    <h3>有效授权</h3>
-                    <p id="activeLicenses">0</p>
-                </div>
-                <div class="stat-item">
-                    <i class="fas fa-bolt stat-icon"></i>
-                    <h3>今日激活</h3>
-                    <p id="todayActivations">0</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2><i class="fas fa-plus-circle"></i> 添加/更新授权码</h2>
-            <form id="licenseForm" class="modern-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="licenseKey"><i class="fas fa-key"></i> 授权码</label>
-                        <div class="input-with-button">
-                        <input type="text" id="licenseKey" name="licenseKey" required>
-                            <button type="button" id="generateKeyBtn"><i class="fas fa-random"></i> 随机生成</button>
+        <div class="main-layout">
+            <nav class="sidebar">
+                <a href="#" id="nav-dashboard" class="nav-link active">数据概览</a>
+                <a href="#" id="nav-licenses" class="nav-link">授权码管理</a>
+                <a href="#" id="nav-accounts" class="nav-link">合作伙伴管理</a>
+            </nav>
+            
+            <main class="content">
+                <!-- 数据概览 -->
+                <div id="dashboardContainer" class="component">
+                     <div class="dashboard-cards">
+                        <div class="card">
+                            <h3>总授权数</h3>
+                            <p id="totalLicenses">0</p>
+                        </div>
+                        <div class="card">
+                            <h3>已激活数</h3>
+                            <p id="activeLicenses">0</p>
+                        </div>
+                        <div class="card">
+                            <h3>今日激活</h3>
+                            <p id="todayActivations">0</p>
                         </div>
                     </div>
                 </div>
-                <div class="form-row">
-                <div class="form-group">
-                        <label for="hotelName"><i class="fas fa-hotel"></i> 酒店名称</label>
-                    <input type="text" id="hotelName" name="hotelName" required>
-                </div>
-                <div class="form-group">
-                        <label for="startDate"><i class="fas fa-calendar-alt"></i> 开始时间</label>
-                    <input type="date" id="startDate" name="startDate" required>
-                </div>
-                <div class="form-group">
-                        <label for="expiryDate"><i class="fas fa-calendar-check"></i> 到期时间</label>
-                    <input type="date" id="expiryDate" name="expiryDate" required>
+
+                <!-- 授权码管理 -->
+                <div id="licensesContainer" class="component hidden">
+                    <div class="form-container">
+                        <h3>添加/更新授权码</h3>
+                        <div class="form-grid">
+                            <input type="text" id="licenseKey" placeholder="授权码 (不填则为新增)">
+                            <button id="generateKeyBtn" class="btn">随机生成</button>
+                            <input type="text" id="hotelName" placeholder="酒店名称" required>
+                            <input type="date" id="startDate" placeholder="开始时间">
+                            <input type="date" id="expiryDate" placeholder="到期时间">
+                            <button id="saveKeyBtn" class="btn">保存授权码</button>
+                            <button id="clearFormBtn" class="btn secondary">清空</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <h3>授权码列表</h3>
+                        <input type="text" id="searchLicense" placeholder="搜索授权码或酒店名称...">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>授权码</th>
+                                    <th>酒店名称</th>
+                                    <th>状态</th>
+                                    <th>激活次数</th>
+                                    <th>创建人</th>
+                                    <th>创建日期</th>
+                                    <th>到期日</th>
+                                    <th>最近激活IP</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="licensesTableBody">
+                                <!-- JS动态生成 -->
+                            </tbody>
+                        </table>
+                        <div id="paginationContainer" class="pagination">
+                            <!-- JS动态生成 -->
+                        </div>
                     </div>
                 </div>
-                <div class="form-actions">
-                    <button type="submit"><i class="fas fa-save"></i> 保存授权码</button>
-                </div>
-            </form>
-        </div>
 
-        <div class="card">
-            <h2><i class="fas fa-list"></i> 已有的授权码</h2>
-            <div class="search-container">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="searchInput" placeholder="搜索酒店名称或授权码">
-            </div>
-            <div class="table-responsive">
-            <table id="licensesTable">
-                <thead>
-                    <tr>
-                            <th><i class="fas fa-key"></i> 授权码</th>
-                            <th><i class="fas fa-hotel"></i> 酒店名称</th>
-                            <th><i class="fas fa-calendar-alt"></i> 开始时间</th>
-                            <th><i class="fas fa-calendar-check"></i> 到期时间</th>
-                            <th><i class="fas fa-info-circle"></i> 状态</th>
-                            <th><i class="fas fa-sync"></i> 激活次数</th>
-                            <th><i class="fas fa-network-wired"></i> 最近激活IP</th>
-                            <th><i class="fas fa-user-edit"></i> 创建人</th>
-                            <th><i class="fas fa-cogs"></i> 操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Data will be populated here -->
-                </tbody>
-            </table>
-        </div>
-            <div id="pagination" class="pagination"></div>
-        </div>
-
-        <div id="accountCard" class="card" style="display:none;">
-            <h2><i class="fas fa-users-cog"></i> 账号管理（仅管理员可见）</h2>
-            <form id="addAccountForm" class="modern-form" autocomplete="off">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="newAccountUsername"><i class="fas fa-user"></i> 用户名</label>
-                        <input type="text" id="newAccountUsername" name="partner_username" placeholder="用户名" autocomplete="off" required>
+                <!-- 合作伙伴管理 -->
+                <div id="accountsContainer" class="component hidden">
+                    <h2>合作伙伴管理</h2>
+                    <div class="card">
+                        <h3>添加/更新合作伙伴</h3>
+                        <div class="form-container">
+                            <div class="form-grid">
+                                <input type="text" id="partnerUsername" placeholder="合作伙伴用户名 (不填则为新增)">
+                                <input type="text" id="partnerName" placeholder="合作伙伴名称" required>
+                                <input type="password" id="partnerPassword" placeholder="登录密码 (新增时必填)">
+                                <button id="savePartnerBtn" class="btn">保存合作伙伴</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="newAccountName"><i class="fas fa-building"></i> 合作伙伴名称</label>
-                        <input type="text" id="newAccountName" name="partner_name" placeholder="合作伙伴名称" autocomplete="off" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="newAccountPassword"><i class="fas fa-lock"></i> 密码</label>
-                        <input type="password" id="newAccountPassword" name="partner_password" placeholder="密码" autocomplete="new-password" required>
+                    <div class="card">
+                        <h3>合作伙伴账号列表</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>合作伙伴名称</th>
+                                    <th>登录用户名</th>
+                                    <th>名下酒店数</th>
+                                    <th>创建日期</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountsTableBody">
+                                <!-- JS动态生成 -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="form-actions">
-                    <button type="submit"><i class="fas fa-user-plus"></i> 添加合作伙伴</button>
-                </div>
-            </form>
-            <div class="table-responsive">
-                <table id="accountsTable">
-                    <thead>
-                        <tr>
-                            <th><i class="fas fa-user"></i> 用户名</th>
-                            <th><i class="fas fa-building"></i> 名称</th>
-                            <th><i class="fas fa-user-tag"></i> 角色</th>
-                            <th><i class="fas fa-calendar-plus"></i> 创建时间</th>
-                            <th><i class="fas fa-cogs"></i> 操作</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
+            </main>
         </div>
-
-        <div id="logsCard" class="card" style="margin-top:24px;display:none;">
-            <h2><i class="fas fa-history"></i> 操作日志</h2>
-            <div id="logsTableContainer" class="table-responsive">
-                <table id="logsTable">
-                    <thead>
-                        <tr>
-                            <th><i class="fas fa-clock"></i> 时间</th>
-                            <th><i class="fas fa-user"></i> 操作人</th>
-                            <th><i class="fas fa-tag"></i> 类型</th>
-                            <th><i class="fas fa-info-circle"></i> 详情</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-                <div id="logsPagination" class="pagination"></div>
-            </div>
-        </div>
-
-        <footer class="main-footer">
-            <p>&copy; 2025 AI点评回复助手管理系统 | 技术支持：Cursor AI</p>
-        </footer>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html> 

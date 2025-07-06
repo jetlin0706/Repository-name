@@ -156,304 +156,159 @@ function injectContentScript(tabId) {
     });
 }
 
-// 监听来自内容脚本和弹出窗口的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    try {
-        addLog(`收到消息: ${message.action}`);
-        
-        if (message.action === 'log') {
-            addLog(`[内容脚本] ${message.message}`);
-            sendResponse({status: 'logged'});
-        }
-        
-        else if (message.action === 'getLogs') {
-            sendResponse({logs: logs});
-        }
-        
-        else if (message.action === 'getStatus') {
-            chrome.storage.local.get(['enabled'], (result) => {
-                const isEnabled = result.enabled !== false; // 默认为true
-                addLog(`返回扩展状态: ${isEnabled ? '启用' : '禁用'}`);
-                sendResponse({enabled: isEnabled});
+// 授权验证API地址
+const VERIFIER_URL = 'http://43.142.109.130:3002/api/verify';
+
+// Function to get or create a machine ID
+function getOrCreateMachineId(callback) {
+    chrome.storage.local.get('machineId', function(data) {
+        if (data.machineId) {
+            callback(data.machineId);
+        } else {
+            // Generate a new ID if one doesn't exist
+            const newId = 'machine-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            chrome.storage.local.set({ 'machineId': newId }, function() {
+                callback(newId);
             });
-            return true; // 保持消息通道开放，以便异步响应
         }
+    });
+}
+
+// 处理所有消息请求
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('收到消息:', request.action || request.type);
+    
+    // 处理AI回复生成请求
+    if (request.action === 'generate-reply') {
+        const { hotelInfo, reviewContent } = request;
         
-        else if (message.action === 'setStatus') {
-            const newStatus = message.enabled;
-            addLog(`设置扩展状态: ${newStatus ? '启用' : '禁用'}`);
-            
-            chrome.storage.local.set({enabled: newStatus}, () => {
-                // 向所有匹配的标签页发送状态更新消息
-                chrome.tabs.query({}, (tabs) => {
-                    tabs.forEach(tab => {
-                        if (isTargetWebsite(tab.url)) {
-                            try {
-                                chrome.tabs.sendMessage(tab.id, {
-                                    action: 'statusChanged',
-                                    enabled: newStatus
-                                });
-                                addLog(`已发送状态更新消息到标签页 ${tab.id}`);
-                            } catch (e) {
-                                addLog(`发送消息到标签页 ${tab.id} 失败: ${e.message}`);
-                }
-                        }
-                    });
+        chrome.storage.local.get(['isActivated', 'licenseKey', 'settings'], (data) => {
+            // 如果本地未激活或没有授权码，直接返回提示
+            if (!data.isActivated || !data.licenseKey) {
+                return sendResponse({ 
+                    success: true, 
+                    reply: `尊敬的顾客您好！\n\n感谢您的评价。我们非常重视您的反馈，并将继续努力提升服务质量。期待您的再次光临！\n\n[提示：请先激活授权码以获取完整AI功能]`
                 });
-                
-                sendResponse({status: 'success', enabled: newStatus});
-            });
-            return true; // 保持消息通道开放，以便异步响应
-        }
-        
-        else if (message.action === 'injectScript') {
-            const tabId = message.tabId;
-            
-            injectContentScript(tabId)
-                .then(result => {
-                    sendResponse(result);
-                })
-                .catch(error => {
-                    sendResponse({success: false, message: error.message});
-                });
-            
-            return true; // 保持消息通道开放，以便异步响应
-        }
-        
-        else if (message.action === 'removeScript') {
-            const tabId = message.tabId;
-            addLog(`尝试从标签页 ${tabId} 移除脚本`);
-            
-            try {
-                // 向内容脚本发送移除消息
-                chrome.tabs.sendMessage(tabId, {action: 'removeAiFeatures'}, (response) => {
-                    if (chrome.runtime.lastError) {
-                        addLog(`无法发送移除消息: ${chrome.runtime.lastError.message}`);
-                        sendResponse({status: 'warning', message: '无法与内容脚本通信，可能脚本未加载'});
-                } else {
-                        addLog(`已发送移除消息到标签页 ${tabId}`);
-                        sendResponse({status: 'success'});
-                }
-                });
-            } catch (e) {
-                addLog(`发送移除消息失败: ${e.message}`);
-                sendResponse({status: 'error', message: e.message});
             }
-            
-            return true; // 保持消息通道开放，以便异步响应
-        }
-        
-        // AI对话相关请求处理
-        else if (message.action === 'getAiReply') {
-            handleGetAiReply(message)
-                .then(result => {
-                    sendResponse(result);
+
+            // 如果本地已激活，则向服务器重新验证授权码
+            getOrCreateMachineId(machineId => {
+                fetch(VERIFIER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        licenseKey: data.licenseKey,
+                        machineId: machineId
+                    })
+                })
+                .then(response => {
+                    if (response.status === 404 || response.status === 403) {
+                         throw new Error('授权码已失效或被删除，请重新激活。');
+                    }
+                    if (!response.ok) {
+                        throw new Error(`验证服务器错误: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(verificationData => {
+                    // 如果服务器确认授权码无效，则抛出错误
+                    if (!verificationData.valid) {
+                        throw new Error(verificationData.message || '授权码已失效，请重新激活。');
+                    }
+
+                    // 授权码仍然有效，继续生成AI回复
+                    const settings = data.settings || {};
+                    const messages = [
+                        {
+                            role: "system",
+                            content: `你是一个专业的酒店客服代表。请使用${hotelInfo.tone === 'friendly' ? '友好亲切' : 
+                                hotelInfo.tone === 'professional' ? '专业礼貌' : 
+                                hotelInfo.tone === 'apologetic' ? '真诚道歉' : 
+                                hotelInfo.tone === 'humorous' ? '轻松幽默' : '专业礼貌'}的语气回复客人的评价。
+                                ${settings.hotelName ? `酒店名称或自称：${settings.hotelName}` : ''}
+                                ${settings.hotelPhone ? `联系电话：${settings.hotelPhone}` : ''}
+                                ${settings.mustInclude ? `回复中必须包含以下信息或围绕这些点展开：${settings.mustInclude}` : ''}
+                                ${settings.forbiddenWords ? `回复中绝对不允许出现以下词汇（或其同义词）：${settings.forbiddenWords}` : ''}
+                                
+                                重要规则：
+                                1. 不要在回复中包含日期。
+                                2. 直接给出最终的、完整的回复内容，不要包含任何你的思考过程、草稿或标记（如<think>）。
+                                3. 不要使用"客服"或类似署名。
+                                4. ${settings.forbiddenWords ? `严格禁止使用以下词汇：${settings.forbiddenWords}` : ''}`
+                        },
+                        { role: "user", content: `客人评价：${reviewContent}\n请生成回复` }
+                    ];
+
+                    return fetch(API_HOST, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                        body: JSON.stringify({ model: API_MODEL, messages: messages, temperature: 0.7, max_tokens: 1000 })
+                    });
+                })
+                .then(aiResponse => {
+                    if (!aiResponse.ok) { throw new Error(`AI服务器错误: ${aiResponse.status}`); }
+                    return aiResponse.json();
+                })
+                .then(aiData => {
+                    if (aiData.choices && aiData.choices[0] && aiData.choices[0].message) {
+                        let reply = aiData.choices[0].message.content.trim();
+                        reply = reply.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+                        sendResponse({ success: true, reply: reply });
+                    } else {
+                        throw new Error('无效的AI响应格式');
+                    }
                 })
                 .catch(error => {
-                    sendResponse({success: false, message: error.message});
+                    console.error('操作失败:', error.message);
+                    // 只要发生错误（无论是验证失败还是AI生成失败），都禁用插件并通知用户
+                    chrome.storage.local.set({ isActivated: false });
+                    sendResponse({ success: false, message: error.message });
                 });
+            });
+        });
+        
+        return true; // 保持消息通道开放以进行异步响应
+    } 
+    // 处理授权验证请求
+    else if (request.action === 'verify-license') {
+        console.log('收到授权验证请求:', request.key);
+        
+        getOrCreateMachineId(machineId => {
+            console.log('使用机器ID:', machineId);
             
-            return true; // 保持消息通道开放，以便异步响应
-        }
-        
-        // 保存设置
-        else if (message.action === 'saveSettings') {
-            chrome.storage.local.set(message.settings, () => {
-                addLog(`已保存设置: ${JSON.stringify(message.settings)}`);
-                sendResponse({status: 'success'});
+            fetch(VERIFIER_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    licenseKey: request.key,
+                    machineId: machineId
+                })
+            })
+            .then(response => {
+                console.log('验证服务器响应状态:', response.status);
+                if (!response.ok) {
+                    throw new Error(`服务器错误: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('验证结果:', data);
+                sendResponse(data);
+            })
+            .catch(error => {
+                console.error('验证请求失败:', error);
+                sendResponse({
+                    success: false,
+                    message: `激活请求失败: ${error.message}`
+                });
             });
-            return true; // 保持消息通道开放，以便异步响应
-        }
+        });
         
-        // 获取设置
-        else if (message.action === 'getSettings') {
-            chrome.storage.local.get(['hotelName', 'hotelPhone', 'mustInclude'], (result) => {
-                addLog(`返回设置: ${JSON.stringify(result)}`);
-                sendResponse({settings: result});
-            });
-            return true; // 保持消息通道开放，以便异步响应
-        }
-    } catch (error) {
-        addLog(`处理消息出错: ${error.message}`);
-        sendResponse({status: 'error', message: error.message});
+        return true; // 保持消息通道开放
     }
 });
-
-// 授权验证API地址
-const VERIFIER_URL = 'https://ai-reply-proxy-new.jetlin0706.workers.dev/api/verify';
-
-// 处理AI回复生成请求
-async function handleGetAiReply(request) {
-    const { tone, commentText } = request;
-    addLog(`收到AI回复请求: [语气: ${tone}]`);
-
-    try {
-        // 授权检查
-        const activationStatus = await new Promise(resolve => {
-            chrome.storage.local.get(['isActivated', 'licenseKey'], result => resolve(result));
-        });
-
-        if (activationStatus.isActivated !== true) {
-            addLog("拒绝AI回复请求：未授权");
-            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
-        }
-
-        // === 新增：每次AI调用前实时校验激活码 ===
-        const licenseKey = activationStatus.licenseKey;
-        if (!licenseKey) {
-            addLog("本地未找到授权码，拒绝AI回复请求");
-            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
-        }
-        // 实时向后端校验激活码
-        let verifyResult;
-        try {
-            const verifyResp = await fetch(VERIFIER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ licenseKey })
-            });
-            verifyResult = await verifyResp.json();
-        } catch (e) {
-            addLog(`激活码校验请求失败: ${e.message}`);
-            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
-        }
-        if (!verifyResult || !verifyResult.valid) {
-            addLog(`激活码实时校验失败: ${verifyResult?.message || '无效授权码'}`);
-            await chrome.storage.local.set({ isActivated: false });
-            return { success: false, message: "你的AI点评回复助手已禁用，如需开通使用，请联系开发者。" };
-        }
-        // === 实时校验通过，继续AI回复 ===
-
-        const settings = await new Promise((resolve, reject) => {
-            chrome.storage.local.get(['hotelName', 'hotelPhone', 'mustInclude'], (result) => {
-                if (chrome.runtime.lastError) {
-                    return reject(chrome.runtime.lastError);
-            }
-                resolve(result);
-            });
-        });
-        
-        const systemPrompt = getSystemPrompt(tone, settings);
-        
-        let userPrompt = `这是客人的评论: "${commentText}"`;
-        if (settings.mustInclude) {
-            userPrompt += `\n\n请在回复中自然地包含以下信息: "${settings.mustInclude}"`;
-        }
-
-        const reply = await callQwenAPI(systemPrompt, userPrompt);
-        addLog(`成功获取AI回复`);
-        return { success: true, reply };
-
-    } catch (error) {
-        const errorMsg = `处理AI回复请求失败: ${error.message}`;
-        addLog(errorMsg);
-        return { success: false, message: errorMsg };
-    }
-}
-
-// 根据不同语气生成系统提示词
-function getSystemPrompt(tone, settings) {
-    const hotelName = settings.hotelName || '我们酒店';
-    let prompt = `你是一个专业的酒店客服经理，你的任务是根据客人的评论生成回复。你的回复必须始终以"${hotelName}"的身份进行。`;
-
-    switch (tone) {
-        case 'friendly':
-            prompt += `
-请使用友好亲切、热情洋溢的语气。可以多使用一些积极的形容词和口语化的表达，让客人感觉温暖。
-例如，可以使用"亲爱的顾客"、"非常感谢您的光临"、"期待您的再次到来哦~"等。如果合适，可以适当使用可爱的表情符号(Emoji)。`;
-            break;
-        case 'professional':
-            prompt += `
-请使用专业、礼貌、严谨的语气。措辞要正式，体现出酒店的专业管理水平。
-回复结构要清晰，例如先表示感谢，然后针对评论内容进行回应，最后致以祝愿。避免使用网络流行语和过多表情。`;
-            break;
-
-        case 'apologetic':
-            prompt += `
-请使用真诚、歉意的语气。这通常用于回应客人的负面评价。
-回复时，首先要对客人不佳的体验表示诚挚的歉意，不要找借口。然后，如果可能，针对客人提出的具体问题说明酒店将如何改进。最后，再次表达歉意并欢迎客人再次光临以体验改进。
-例如："对于您遇到的问题，我们深表歉意..."、"我们已经立刻着手调查并处理..."`;
-            break;
-        case 'humorous':
-            prompt += `
-请使用轻松、幽默、风趣的语气。可以适当使用网络流行语、玩梗或者自嘲，拉近与年轻顾客的距离。
-注意，幽默不等于不礼貌，在保持风趣的同时，依然要传达出对客人的尊重和感谢。可以根据评论内容进行有趣的互动。`;
-            break;
-        default:
-            prompt += `
-请使用默认的友好且专业的语气进行回复。`;
-            break;
-    }
-    
-    if (settings.hotelPhone) {
-        prompt += `\n如果回复内容适合，可以在结尾处附上酒店电话：${settings.hotelPhone}，方便客人直接联系。`;
-    }
-
-    prompt += `
-
- **重要规则：**
- 1.  **直接生成回复**：你的输出内容必须直接是给客人的回复，不要包含任何思考过程、解释、或类似于 "<think>" 这样的标签。
- 2.  **不要包含日期**：回复中绝对不能包含或引用客人评论的发表日期或时间。回复应该是通用的，不指明具体时间。
- 3.  **专注于评论内容**：你的回复应该只针对客人评论中提到的体验，而不是评论本身（比如不要说"看到您X月X日的评论"）。`;
-
-    return prompt;
-}
-
-// 调用通义千问API
-async function callQwenAPI(systemPrompt, userPrompt) {
-    addLog("开始调用通义千问API...");
-    try {
-        const response = await fetch(API_HOST, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}`
-            },
-            body: JSON.stringify({
-                model: API_MODEL,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                max_tokens: 1000,
-                temperature: 0.7
-            })
-        });
-        
-        if (!response.ok) {
-            // 如果是401错误，返回特定的友好提示
-            if (response.status === 401) {
-                throw new Error("尊敬的合作伙伴，您的API额度可能已用完，请联系服务商进行充值。");
-            }
-            const errorText = await response.text();
-            throw new Error(`API请求失败: ${response.status} - ${errorText}`);
-        }
-        
-        const data = await response.json();
-
-        if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-            const replyContent = data.choices[0].message.content;
-            addLog("成功从API响应中提取回复内容。");
-
-            // 移除AI回复中可能包含的思考过程
-            const cleanedReply = replyContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-
-            if (cleanedReply.length < replyContent.length) {
-                addLog("已过滤并移除AI回复中的思考过程内容。");
-            }
-
-            return cleanedReply;
-        } else {
-            addLog("API响应格式不正确，缺少回复内容。");
-            throw new Error("API响应格式不正确，无法找到回复内容。");
-        }
-
-    } catch (error) {
-        addLog(`API调用出错: ${error.message}`);
-        // 将原始错误再次抛出，以便上层函数可以捕获
-        throw error;
-    }
-}
 
 // 在浏览器启动时注入到所有匹配的标签页
 chrome.runtime.onStartup.addListener(() => {

@@ -33,19 +33,28 @@ jobs:
           # 在服务器上执行的脚本
           script: |
             echo "--- Navigating to project directory ---"
-            cd C:\Users\Administrator\Desktop\repository-name-v2
+            cd /home/ubuntu/repository-name-v2/ai-reply-verifier-backend
             
             echo "--- Pulling latest code from GitHub ---"
             git pull origin gh-pages-deploy
             
             echo "--- Installing backend dependencies ---"
-            cd ai-reply-verifier-backend
             npm install
             
+            echo "--- Renaming server.js to index.js ---"
+            mv server.js index.js
+            
             echo "--- Restarting application with PM2 ---"
-            pm2 restart index.js --name "ai-reply-backend" || pm2 start index.js --name "ai-reply-backend"
+            pm2 delete ai-reply-backend
+            pm2 start index.js --name ai-reply-backend
             
             echo "--- Saving PM2 process list ---"
             pm2 save
+            
+            echo "--- Checking service status ---"
+            pm2 status
+            
+            echo "--- Viewing PM2 logs for ai-reply-backend ---"
+            pm2 logs ai-reply-backend
             
             echo "--- Deployment to Windows Server successful! ---" 

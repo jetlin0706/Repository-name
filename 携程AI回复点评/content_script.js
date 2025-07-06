@@ -282,18 +282,32 @@
             return;
         }
 
+        // 设置超时
+        let timeoutId = setTimeout(() => {
+            sendLog("AI回复请求超时");
+            replyText.value = "生成回复超时，请重试。如果问题持续，请刷新页面或重启浏览器。";
+            replyOutput.classList.remove('loading');
+            replyOutput.classList.add('loaded');
+        }, 30000); // 30秒超时
+
         chrome.runtime.sendMessage({
-            action: 'getAiReply',
-            tone: tone,
-            commentText: commentText
+            action: 'generate-reply',
+            hotelInfo: {
+                tone: tone
+            },
+            reviewContent: commentText
         }, response => {
+            // 清除超时
+            clearTimeout(timeoutId);
+            
+            sendLog(`收到回复: ${JSON.stringify(response)}`);
             if (chrome.runtime.lastError) {
                 sendLog(`获取AI回复时出错: ${chrome.runtime.lastError.message}`);
-                replyText.value = `生成回复失败。可能是插件已更新，请刷新页面或重新打开对话框重试。`;
+                replyText.value = `生成回复失败。可能是插件已更新，请刷新页面或重新打开对话框重试。\n错误: ${chrome.runtime.lastError.message}`;
             } else if (response && response.success) {
                 replyText.value = response.reply;
             } else {
-                replyText.value = `生成回复失败: ${response.message || '未知错误'}`;
+                replyText.value = `生成回复失败: ${response?.message || response?.error || '未知错误'}`;
             }
             // 结束加载状态
             replyOutput.classList.remove('loading');

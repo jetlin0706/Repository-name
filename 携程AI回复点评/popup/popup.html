@@ -13,28 +13,28 @@
         </header>
 
         <main>
-            <div class="form-group-switch">
-                <label for="featureEnabled">启用AI回复功能</label>
-                <label class="switch">
-                    <input type="checkbox" id="featureEnabled">
-                    <span class="slider round"></span>
-                </label>
-            </div>
-            
-            <div id="license-panel">
-                <div class="form-group">
+            <div id="settings-panel" class="settings-section">
+                <div class="setting-item">
+                    <label for="enable-ai-toggle">启用AI回复功能</label>
+                    <label class="switch">
+                        <input type="checkbox" id="enable-ai-toggle" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <!-- 授权码输入区域 -->
+                <div class="setting-item license-section">
                     <label for="licenseKey">授权码</label>
                     <div class="license-input-group">
-                        <input type="text" id="licenseKey" placeholder="请输入您的授权码" class="input-field">
-                        <button id="activateButton">激活</button>
+                        <input type="text" id="licenseKey" placeholder="请输入授权码">
+                        <button id="activate">激活</button>
                     </div>
                 </div>
-            </div>
-            
-            <div id="settings-panel">
-                <div class="form-group">
+                <div id="statusMessage" class="status-message"></div>
+
+                <div class="setting-item">
                     <label for="hotelName">酒店自称</label>
-                    <input type="text" id="hotelName" placeholder="例如：我们酒店" class="input-field">
+                    <input type="text" id="hotelName" placeholder="例如：小季、小优等" class="input-field">
                 </div>
                  <div class="form-group">
                     <label for="hotelPhone">酒店电话 (选填)</label>
@@ -42,7 +42,12 @@
                 </div>
                 <div class="form-group">
                     <label for="mustInclude">AI回复必须含内容</label>
-                    <textarea id="mustInclude" placeholder="酒店的地理优势，酒店的环境优势等" rows="3" class="input-field"></textarea>
+                    <textarea id="mustInclude" placeholder="酒店非常靠近地铁站，酒店靠近什么景区，酒店包含什么特色的设施环境等" rows="3" class="input-field"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="forbiddenWords">AI回复禁用词汇</label>
+                    <input type="text" id="forbiddenWords" placeholder="例如：先生，小姐" class="input-field">
+                    <small class="hint">多个词用逗号","隔开，AI回复将不会出现这些词汇。</small>
                 </div>
             </div>
         </main>

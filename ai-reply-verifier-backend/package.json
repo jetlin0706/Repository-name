@@ -3,19 +3,23 @@
   "version": "1.0.0",
   "private": true,
   "description": "Backend for AI Reply Verifier！!",
-  "main": "api/verify.js",
+  "type": "module",
+  "main": "index.js",
   "scripts": {
-    "start": "vercel dev"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@upstash/redis": "^1.22.0",
-    "@vercel/kv": "^1.0.0",
     "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
-    "next": "^13.4.19",
-    "node-fetch": "^2.7.0",
-    "vercel": "^32.3.0"
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }

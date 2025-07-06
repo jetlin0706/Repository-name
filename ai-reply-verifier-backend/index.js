@@ -3,74 +3,47 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import Redis from 'ioredis';
 
-// 导入路由
+// 导入所有路由和中间件
 import verifyRouter from './api/verify.js';
 import accountsRouter from './api/admin/accounts.js';
 import licensesRouter from './api/admin/licenses.js';
 import loginRouter from './api/admin/login.js';
 import logsRouter from './api/admin/logs.js';
+import dashboardRouter from './api/admin/dashboard.js';
+import resetPasswordRouter from './api/admin/reset-password.js';
+import verifyTokenHandler from './api/admin/verify-token.js'; // 注意这里是 handler
 
+const app = express();
+const port = process.env.PORT || 3002;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const app = express();
-const port = process.env.PORT || 3000;
-
-// Middleware
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// 全局中间件
+app.use(cors());
 app.use(express.json());
 
-// Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
+// 静态文件服务
+const adminPath = path.join(__dirname, 'public', 'admin');
+app.use('/admin', express.static(adminPath));
 
-// --- NEW: Serve Admin Frontend ---
-// This will serve the HTML, CSS, and JS for your admin panel
-app.use('/admin', express.static('admin'));
-
-// Redirect /admin to /admin/index.html
-app.get('/admin', (req, res) => {
-  res.redirect('/admin/');
-});
-
-// 加载 API 路由
-console.log('--- Loading API routes ---');
-
-// 验证路由
+// API 路由注册
 app.use('/api/verify', verifyRouter);
+app.use('/api/admin/accounts', accountsRouter);
+app.use('/api/admin/licenses', licensesRouter);
+app.use('/api/admin/login', loginRouter);
+app.use('/api/admin/logs', logsRouter);
+app.use('/api/admin/dashboard', dashboardRouter);
+app.use('/api/admin/reset-password', resetPasswordRouter);
+app.use('/api/admin/verify-token', verifyTokenHandler); // 直接使用 handler
 
-// Admin 路由
-const adminRoutes = {
-  accounts: accountsRouter,
-  licenses: licensesRouter,
-  login: loginRouter,
-  logs: logsRouter
-};
-
-Object.entries(adminRoutes).forEach(([name, router]) => {
-  const route = `/api/admin/${name}`;
-  console.log(`Registering admin route: ${route}`);
-  app.use(route, router);
-});
-
-console.log('--- API routes loaded ---');
-
-// Add a catch-all for the admin UI to handle client-side routing
+// 后台 SPA 路由 Fallback
 app.get('/admin/*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
+  res.sendFile(path.join(adminPath, 'index.html'));
 });
 
-// 错误处理中间件
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something broke!' });
-});
-
-// Start the server
+// 启动服务器
 app.listen(port, () => {
-  console.log(`Server is running successfully on http://localhost:${port}`);
+    console.log(`Server is running successfully on http://localhost:${port}`);
 }); 
